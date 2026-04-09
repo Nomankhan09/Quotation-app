@@ -1,0 +1,831 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store';
+import { router, useLocalSearchParams } from 'expo-router';
+import { setSelectedLead, resetBuilder, setEditMode, resetForNewQuotation } from '@/store/slices/quotationBuilderSlice';
+import { addLead } from '@/store/slices/leadsSlice';
+import { 
+  ArrowLeft, 
+  Search, 
+  User, 
+  Building, 
+  Mail, 
+  Check, 
+  Plus, 
+  X, 
+  Phone,
+  Users,
+  Briefcase,
+  UserPlus,
+} from 'lucide-react-native';
+
+export default function SelectLeadScreen() {
+  const { leads } = useSelector((state: RootState) => state.leads);
+  const { selectedLead, isEditMode, editingQuotationId, prefillData: persistedPrefillData } = useSelector((state: RootState) => state.quotationBuilder);
+  const dispatch = useDispatch<any>();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newLead, setNewLead] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    company_name: '',
+    notes: '',
+  });
+  
+  const params = useLocalSearchParams();
+  const editMode = params.editMode === 'true';
+  const urlPrefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
+  
+  const prefillData = persistedPrefillData || urlPrefillData;
+  
+  const hasPrefilled = useRef(false);
+  const hasReset = useRef(false);
+  const hasSetEditMode = useRef(false);
+  const hasSetCurrentStep = useRef(false);
+  const hasRestoredSelectedLead = useRef(false);
+
+  useEffect(() => {
+    if (editMode && !hasSetEditMode.current) {
+      dispatch(setEditMode({ 
+        isEditMode: true, 
+        quotationId: params.quotationId as string,
+        prefillData: prefillData,
+      }));
+      hasSetEditMode.current = true;
+    }
+
+    if (!hasRestoredSelectedLead.current) {
+      if (selectedLead) {
+        hasRestoredSelectedLead.current = true;
+      }
+      else if ((isEditMode || editMode) && prefillData && prefillData.leadId) {
+        dispatch(setSelectedLead(prefillData.leadId));
+        hasRestoredSelectedLead.current = true;
+        hasPrefilled.current = true;
+      }
+      else if (editingQuotationId && prefillData && prefillData.leadId) {
+        dispatch(setSelectedLead(prefillData.leadId));
+        hasRestoredSelectedLead.current = true;
+        hasPrefilled.current = true;
+      }
+    }
+  }, [editMode, prefillData, selectedLead, dispatch, params.quotationId, isEditMode, editingQuotationId]);
+
+  const filteredLeads = leads.filter(lead =>
+    lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lead.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSelectLead = (leadId: string) => {
+    dispatch(setSelectedLead(leadId));
+    router.back();
+  };
+
+  const handleAddLead = () => {
+    if (!newLead.full_name || !newLead.company_name) {
+      Alert.alert('Required Fields', 'Please fill in name and company');
+      return;
+    }
+
+    if(!newLead.email){
+      newLead.email = "NA"
+    }
+
+    dispatch(addLead(newLead))
+      .unwrap()
+      .then((createdLead: any) => {
+        dispatch(setSelectedLead(createdLead.id));
+        setNewLead({
+          full_name: '',
+          email: '',
+          phone: '',
+          company_name: '',
+          notes: '',
+        });
+        setShowAddModal(false);
+        Alert.alert('Success', 'Contact added successfully!');
+        router.back();
+      });
+  };
+
+  const handleBackPress = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/quotations');
+    }
+  };
+
+  const renderLeadItem = ({ item }: { item: any }) => {
+    const isSelected = selectedLead === item.id;
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.leadCard, isSelected && styles.selectedCard]}
+        onPress={() => handleSelectLead(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.leadContent}>
+          <View style={styles.leadAvatar}>
+            <User size={24} color={isSelected ? '#3B82F6' : '#64748B'} />
+          </View>
+          
+          <View style={styles.leadInfo}>
+            <Text style={[styles.leadName, isSelected && styles.leadNameSelected]}>
+              {item.full_name}
+            </Text>
+            
+            <View style={styles.leadDetails}>
+              <View style={styles.leadDetailRow}>
+                <Briefcase size={14} color="#94A3B8" />
+                <Text style={styles.leadDetailText}>{item.company_name}</Text>
+              </View>
+              
+              {item.email && item.email !== 'NA' && (
+                <View style={styles.leadDetailRow}>
+                  <Mail size={14} color="#94A3B8" />
+                  <Text style={styles.leadDetailText} numberOfLines={1}>
+                    {item.email}
+                  </Text>
+                </View>
+              )}
+              
+              {item.phone && (
+                <View style={styles.leadDetailRow}>
+                  <Phone size={14} color="#94A3B8" />
+                  <Text style={styles.leadDetailText}>{item.phone}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+        
+        {isSelected && (
+          <View style={styles.checkmarkWrapper}>
+            <View style={styles.checkmark}>
+              <Check size={16} color="#FFFFFF" />
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconWrapper}>
+        <Users size={56} color="#CBD5E1" />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {searchQuery ? 'No contacts found' : 'No contacts yet'}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {searchQuery 
+          ? 'Try adjusting your search terms' 
+          : 'Add your first contact to get started'}
+      </Text>
+      {!searchQuery && (
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={() => setShowAddModal(true)}
+          activeOpacity={0.8}
+        >
+          <UserPlus size={20} color="#FFFFFF" />
+          <Text style={styles.emptyButtonText}>Add Contact</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Enhanced Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={22} color="#0F172A" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Text style={styles.title}>Select Client</Text>
+          <Text style={styles.subtitle}>
+            {filteredLeads.length} contact{filteredLeads.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setShowAddModal(true)}
+          activeOpacity={0.8}
+        >
+          <Plus size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name, company, or email..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#CBD5E1"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
+              <X size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Selected Info Banner */}
+      {selectedLead && (
+        <View style={styles.selectedBanner}>
+          <View style={styles.selectedBannerContent}>
+            <Check size={16} color="#10B981" />
+            <Text style={styles.selectedBannerText}>
+              {leads.find(l => l.id === selectedLead)?.full_name} selected
+            </Text>
+          </View>
+          <TouchableOpacity 
+            onPress={() => dispatch(setSelectedLead(''))}
+            activeOpacity={0.7}
+          >
+            <X size={18} color="#10B981" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Leads List */}
+      <FlatList
+        data={filteredLeads}
+        renderItem={renderLeadItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[
+          styles.listContainer,
+          filteredLeads.length === 0 && styles.emptyListContainer
+        ]}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={renderEmptyState}
+      />
+
+      {/* Add Lead Modal */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderContent}>
+              <View style={styles.modalIconWrapper}>
+                <UserPlus size={24} color="#3B82F6" />
+              </View>
+              <Text style={styles.modalTitle}>Add New Contact</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => setShowAddModal(false)}
+              style={styles.modalCloseButton}
+              activeOpacity={0.7}
+            >
+              <X size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Form Content */}
+          <ScrollView 
+            style={styles.formScrollView}
+            contentContainerStyle={styles.formContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.formSection}>
+              <Text style={styles.formSectionLabel}>Basic Information</Text>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Full Name *</Text>
+                <View style={styles.inputWrapper}>
+                  <User size={20} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter full name"
+                    value={newLead.full_name}
+                    onChangeText={(text) => setNewLead({ ...newLead, full_name: text })}
+                    placeholderTextColor="#CBD5E1"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Company *</Text>
+                <View style={styles.inputWrapper}>
+                  <Building size={20} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter company name"
+                    value={newLead.company_name}
+                    onChangeText={(text) => setNewLead({ ...newLead, company_name: text })}
+                    placeholderTextColor="#CBD5E1"
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={styles.formSectionLabel}>Contact Details</Text>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <View style={styles.inputWrapper}>
+                  <Mail size={20} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="email@example.com"
+                    value={newLead.email}
+                    onChangeText={(text) => setNewLead({ ...newLead, email: text })}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholderTextColor="#CBD5E1"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Phone Number</Text>
+                <View style={styles.inputWrapper}>
+                  <Phone size={20} color="#94A3B8" />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="+1 (555) 000-0000"
+                    value={newLead.phone}
+                    onChangeText={(text) => setNewLead({ ...newLead, phone: text })}
+                    keyboardType="phone-pad"
+                    placeholderTextColor="#CBD5E1"
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formSection}>
+              <Text style={styles.formSectionLabel}>Additional Notes</Text>
+              
+              <View style={styles.formGroup}>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Add any additional notes..."
+                  value={newLead.notes}
+                  onChangeText={(text) => setNewLead({ ...newLead, notes: text })}
+                  multiline
+                  numberOfLines={4}
+                  placeholderTextColor="#CBD5E1"
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
+
+            <View style={{ height: 120 }} />
+          </ScrollView>
+
+          {/* Modal Footer */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowAddModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleAddLead}
+              activeOpacity={0.8}
+            >
+              <UserPlus size={20} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Add Contact</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  
+  // Search
+  searchSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  
+  // Selected Banner
+  selectedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#D1FAE5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#A7F3D0',
+  },
+  selectedBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  selectedBannerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  
+  // List
+  listContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  
+  // Lead Card
+  leadCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedCard: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+  },
+  leadContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  leadAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leadInfo: {
+    flex: 1,
+  },
+  leadName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  leadNameSelected: {
+    color: '#3B82F6',
+  },
+  leadDetails: {
+    gap: 4,
+  },
+  leadDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  leadDetailText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    flex: 1,
+  },
+  checkmarkWrapper: {
+    marginLeft: 12,
+  },
+  checkmark: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyIconWrapper: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 32,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  emptyButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  
+  // Modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  modalIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  // Form
+  formScrollView: {
+    flex: 1,
+  },
+  formContent: {
+    padding: 20,
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  formSectionLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  textArea: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  
+  // Modal Footer
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 60,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#3B82F6',
+    borderRadius: 14,
+    paddingVertical: 16,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+});

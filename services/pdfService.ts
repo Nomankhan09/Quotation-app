@@ -1,3 +1,6 @@
+import { IMAGE_URL } from "@/constants/constant";
+import { getRoman } from "@/utils/roman_number";
+
 // Enhanced HTML-based PDF generation for interior work quotations
 interface Customer {
   full_name: string;
@@ -37,6 +40,7 @@ interface QuotationData {
     description: string;
     value: string;
   }>;
+  specifications?: any[];
   created_at: string;
   validUntil?: string;
   notes?: string;
@@ -56,14 +60,14 @@ const getCurrentDateComponents = () => {
   const currentDay = now.getDate();
   const month = now.toLocaleString('default', { month: 'long' });
   const currentYear = now.getFullYear();
-  
+
   return { currentDay, month, currentYear };
 };
 
 // Group products by category
 const groupProductsByCategory = (products: Product[]) => {
   const grouped: { [key: string]: Product[] } = {};
-  
+
   products.forEach(product => {
     const category = product.categoryName || 'Other';
     if (!grouped[category]) {
@@ -71,7 +75,7 @@ const groupProductsByCategory = (products: Product[]) => {
     }
     grouped[category].push(product);
   });
-  
+
   return grouped;
 };
 
@@ -84,119 +88,153 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
   const { currentDay, month, currentYear } = getCurrentDateComponents();
   const formattedDate = `${currentDay} ${month} ${currentYear}`;
   const groupedProducts = groupProductsByCategory(quotationData.products);
-  
+
   let productsHTML = '';
   let srNo = 1;
-  
+
   Object.keys(groupedProducts).forEach(category => {
     const categoryProducts = groupedProducts[category];
     const categoryTotal = calculateCategoryTotal(categoryProducts);
-    
+
     // Add category header - FIXED: Use proper CSS background-color
     productsHTML += `
-      <div style="background-color: rgb(223 213 202); border: 1px solid #dbccbb; padding: 5px; margin: 10px 0; padding-left: 50px; font-size: 11px; font-weight: bold;">
+      <div style="background-color: rgb(245, 238, 230); border: 1px solid #dbccbb; padding: 5px; margin: 3px 0; padding-left: 50px; font-size: 18px; font-weight: bold;">
         ${category} : <span style="display: inline-block; margin-left: 10px;">₹${formatIndianNumber(categoryTotal)}</span>
       </div>
     `;
-    
+
     // Add products for this category
-    categoryProducts.forEach(product => {
+    categoryProducts.forEach((product, productIndex) => {
       let dimensions = '0.00';
-  
+
       if (product.length && product.width && product.unit) {
         let lengthInFeet = product.length;
         let widthInFeet = product.width;
-        
+
         // Convert to feet if unit is inches
         if (product.unit.toLowerCase() === 'inches') {
           lengthInFeet = product.length / 12;
           widthInFeet = product.width / 12;
         }
-        
+
         // Calculate area in square feet
         const area = lengthInFeet * widthInFeet;
         dimensions = `${area.toFixed(2)} sq ft`;
       }
-      
+
+      const isLastProduct = productIndex === categoryProducts.length - 1;
+      const isLastCategory = Object.keys(groupedProducts).indexOf(category) === Object.keys(groupedProducts).length - 1;
       productsHTML += `
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
-          <tr style="font-size: 11px;">
-            <td style="width: 8%; text-align: center;">${srNo++}</td>
-            <td style="width: 35%; max-width: 150px; word-wrap: break-word;">${product.product_name}</td>
-            <td style="width: 8%; text-align: center;">${product.quantity}</td>
-            <td style="width: 15%; text-align: center;">${dimensions}</td>
-            <td style="width: 15%;">₹${formatIndianNumber(product.unitPrice)}</td>
-            <td style="width: 15%;">₹${formatIndianNumber(product.totalPrice)}</td>
+          <tr style="font-size: 18px; ">
+              <td style="width: 5%; text-align: left; padding: 4px 0; padding-left: 10px">${srNo++}</td>
+              <td style="width: 15%; max-width: 150px; word-wrap: break-word; padding: 4px 0; padding-left: 10px">${product.product_name}</td>
+              <td style="width: 5%; text-align: left; padding: 4px 0; padding-left: 10px">${product.quantity}</td>
+              <td style="width: 10%; text-align: left; padding: 4px 0; padding-left: 10px">${dimensions}</td>
+              <td style="width: 10%; text-align: left; padding: 4px 0; padding-left: 10px">₹${formatIndianNumber(product.unitPrice)}</td>
+              <td style="width: 10%; text-align: left; padding: 4px 0; padding-left: 10px">₹${formatIndianNumber(product.totalPrice)}</td>
           </tr>
         </table>
-        <div style="border-bottom: 1px solid #dbccbb; margin: 10px 0;"></div>
+        ${!isLastProduct ? `<div style="border-bottom: 1px solid #dbccbb; margin: 4px 0;"></div>` :
+          isLastCategory ? `<div style="border-bottom: 1px solid #dbccbb"></div>` : ''}
       `;
     });
   });
 
   const extractPercentage = (description: string): number | null => {
-  if (!description) return null;
+    if (!description) return null;
 
-  // Case 1: pure number => percentage
-  if (/^\d+$/.test(description)) {
-    return Number(description);
-  }
+    // Case 1: pure number => percentage
+    if (/^\d+$/.test(description)) {
+      return Number(description);
+    }
 
-  // Case 2: number with %
-  const percentMatch = description.match(/(\d+)\s*%/);
-  if (percentMatch) {
-    return Number(percentMatch[1]);
-  }
+    // Case 2: number with %
+    const percentMatch = description.match(/(\d+)\s*%/);
+    if (percentMatch) {
+      return Number(percentMatch[1]);
+    }
 
-  return null;
-};
+    return null;
+  };
 
 
   // Updated payment terms calculation and display - FIXED: Made full width
- const paymentTermsHTML = quotationData.paymentTerms.map((term, i) => {
-  let amountHTML = '';
+  const paymentTermsHTML = quotationData.paymentTerms.map((term, i) => {
+    let amountHTML = '';
 
-  const percentage = extractPercentage(term.description);
+    const percentage = extractPercentage(term.description);
 
-  if (percentage !== null) {
-    const calculatedAmount =
-      (quotationData.totalAmount * percentage) / 100;
+    if (percentage !== null) {
+      const calculatedAmount = (quotationData.totalAmount * percentage) / 100;
+      amountHTML = `₹${formatIndianNumber(calculatedAmount)}`;
+    }
 
-    amountHTML = `₹${formatIndianNumber(calculatedAmount)}`;
-  }
-
-  return `
-    <div style="display:flex; justify-content:space-between; padding:8px 15px; font-size:11px; border-bottom:1px solid #dbccbb;">
-      <span>${term.description} ${term.value}</span>
-      <span>${amountHTML}</span>
+    return `
+    <div style="display: flex; justify-content: space-between; font-size: 16px; border-bottom: 1px solid #dbccbb;">
+      <span style="width: 80%; padding: 6px 15px; border-right: 1px solid #dbccbb;">${term.description} ${term.value}</span>
+      <span style="width: 20%; font-weight: 500; padding: 6px 15px; text-align: left;">${amountHTML}</span>
     </div>
   `;
-}).join('');
+  }).join('');
 
 
 
   // Also add a total row for payment terms
   const paymentTermsTotalHTML = `
-    <div style="display: flex; justify-content: space-between; padding: 8px 15px; font-size: 11px; border-bottom: none; font-weight: bold; color: #000; background-color: rgb(240, 240, 240);">
-      <span>Total Amount to be paid</span>
-      <span>₹${formatIndianNumber(quotationData.totalAmount)}</span>
-    </div>
+      <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; background-color: rgb(245, 238, 230); border-top: 1px solid #dbccbb;">
+       <span style="width: 80%; padding: 8px 15px; ">Total Amount to be paid</span>
+       <span style="width: 20%; text-align: left; padding: 8px 15px; ">₹${formatIndianNumber(quotationData.totalAmount)}</span>
+      </div>
   `;
 
   const termsHTML = quotationData.terms.map((term, index) => `
-    <div style="font-size: 11px; margin-bottom: 8px; display: flex;">
+    <div style="font-size: 16px; margin-bottom: 8px; display: flex;">
       <div style="margin-right: 10px; min-width: 15px;">${index + 1}.</div>
       <div>${term}</div>
     </div>
   `).join('');
 
-  const logoUrl =  quotationData.user.company_logo_url || '';
+  // specifications
+  const getAlphabet = (index: number) =>
+    String.fromCharCode(65 + index);
 
+  const specificationsHTML = quotationData?.specifications?.map((spec, index) => `
+    <div style="margin-bottom: 12px;">
+      
+      <!-- Title -->
+      <div style="font-size: 16px; display: flex; font-weight: 600;">
+        <div style="margin-right: 8px;">${getAlphabet(index)}.</div>
+        <div style="">${spec.item.toUpperCase()}</div>
+      </div>
 
-  console.log('LOGO URL USED IN HTML:', logoUrl);
-  console.log('USER OBJECT:', quotationData.user);
+      <!-- Description -->
+      <div style="margin-left: 20px; margin-top: 4px;">
+        ${(spec.description || [])
+      .map(
+        (d: any, i: number) => `
+              <div style="display: flex; margin-bottom: 4px;">
+                <div style="margin-right: 8px; min-width: 18px;">
+                  ${getRoman(i + 1)}.
+                </div>
+                <div style="
+                  margin-bottom: 2px;
+                  line-height: 1;
+                  letter-spacing: 0.3px;
+                ">
+                  ${d.description.toUpperCase()}
+                </div>
+              </div>
+            `
+      )
+      .join('')}
+      </div>
 
+    </div>
+  `)
+    .join('');
 
+  const logoUrl = IMAGE_URL + quotationData.user.company_logo || '';
   const userCompanyName = quotationData.user.company_name || '';
   const userCompanyAddress = quotationData.user.company_address || '';
   const userCompanyZip = quotationData.user.zip_code || '';
@@ -216,97 +254,93 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
           print-color-adjust: exact !important;
           color-adjust: exact !important;
       }
-      .bg-beige {
-          background-color: rgb(223 213 202) !important;
-      }
+       
   </style>
 </head>
-<body style="margin: 0; padding: 20px; background-color: #f5f5f5; font-family: Helvetica, Arial, sans-serif;">
-    <div style="width: 8.5in; min-height: 11in; background: white; margin: 0 auto; padding: 30px 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative;">
+<body style="margin: 0; padding: 0;  font-family: Helvetica, Arial, sans-serif;">
+    <div style="
+  width: 8.5in;
+  min-height: 11in;
+  background: white;
+  margin: 0 auto;
+  padding: 10px 40px;
+  box-sizing: border-box;
+">
         <!-- Header Section -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div class="logo-section">
-                <div style="width: 140px; height: 55px; display: flex; align-items: center; justify-content: center; color: #826546; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0;">
+            <div style="min-width: 160px; max-width: 180px; display: flex; align-items: center;">
+                <div style="width: 180px; height: 80px; display: flex; align-items: center; color: #826546; font-size: 12px;">
                     <img src="${logoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="Company Logo" />
                 </div>
             </div>
-            <div style="text-align: left; flex-grow: 1; margin-left: 30px;">
-                <div style="border-top: 2px solid #dbccbb; border-bottom: 2px solid #dbccbb; padding: 5px 0; margin-bottom: 5px;">
-                    <div style="color: #dfb163; font-size: 16px; font-weight: bold; margin-bottom: 5px;">Work Quotation</div>
+            <div style="flex: 1; text-align: left;">
+                <div style="color: #dfb163; font-size: 26px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.2px;">Interior Work Quotation</div>
+                <div style="border-top: 1px solid #dbccbb;">
+                <div style="color: #826546; font-size: 16.5px; line-height: 1.8; border-top: 1px solid #dbccbb; border-bottom: 1px solid #dbccbb; padding: 2px 0;">
+                    Company Name | ${userCompanyName}, ${userCompanyAddress}-${userCompanyZip}
                 </div>
-                <div style="color: #826546; font-size: 8px; line-height: 1.2;">
-                    <div>Company Name | ${userCompanyName}, ${userCompanyAddress}-${userCompanyZip}</div>
-                    <div>Company Phone | ${userCompanyPhone} &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; ${userCompanyWebsite}</div>
+                <div style="color: #826546; font-size: 16.5px; line-height: 1.8; display: flex; justify-content: space-between; padding: 2px 0;">
+                    <span>Company Phone | ${userCompanyPhone}</span>
+                    <span>${userCompanyWebsite}</span>
                 </div>
-            </div>
+        </div>
+    </div>
+
         </div>
         
-        <div style="border-top: 1px solid #000; margin: 10px 0;"></div>
+        <div style="border-top: 1.5px solid #111; margin: 10px 0 14px;margin-top:5px"></div>
         
         <!-- Customer Information -->
         <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
             <div style="flex: 1;">
-                <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">To,</div>
-                <div style="font-size: 11px; font-weight: bold; margin-bottom: 5px;">${quotationData.lead.full_name}</div>
+                <div style="font-size: 20px; font-weight: bold; margin-bottom: 6px;">To,</div>
+                <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.full_name}</div>
                 ${quotationData.lead.phone ? `
-                <div style="display: flex; margin-bottom: 3px; font-size: 11px;">
+                <div style="margin-bottom: 3px; font-size: 19px;">
                     <span>${quotationData.lead.phone}</span>
                 </div>
                 ` : ''}
                 ${quotationData.lead.email ? `
-                <div style="display: flex; margin-bottom: 3px; font-size: 11px;">
+                <div style="font-size: 19px;">
                     <span>${quotationData.lead.email}</span>
                 </div>
                 ` : ''}
             </div>
             <div style="text-align: right;">
-                <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">Quotation- ${quotationData.quotationNumber}</div>
-                <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">Date: ${formattedDate}</div>
+                <div style="font-size: 17px; font-weight: bold; margin-bottom: 6px;">Quotation- <span style="font-weight:500;"> ${quotationData.quotationNumber} </span></div>
+                <div style="font-size: 17px; font-weight: bold; margin-bottom: 6px;">Date: <span style="font-weight:500;">${formattedDate}</div>
                 ${quotationData.validUntil ? `
-                <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">Valid Until: ${new Date(quotationData.validUntil).toLocaleDateString()}</div>
+                <div style="font-size: 17px; font-weight: bold; margin-bottom: 10px;">Valid Until: ${new Date(quotationData.validUntil).toLocaleDateString()}</span></div>
                 ` : ''}
             </div>
         </div>
         
         <!-- Salutation and Message -->
-        <div style="font-size: 11px; margin: 20px 0 10px 0;">Dear ${quotationData.lead.full_name?.split(' ')[0] || 'Sir/Madam'},</div>
-        <div style="font-size: 11px; margin-left: 20px; margin-bottom: 15px;">Thank you for your valuable inquiry. We are pleased to quote as below:</div>
+        <div style="font-size: 20px; margin: 20px 0 15px 0;">Dear ${quotationData.lead.full_name?.split(' ')[0] || 'Sir/Madam'},</div>
+        <div style="font-size: 20px; margin-left: 10px; margin-bottom: 5px;">Thank you for your valuable inquiry. We are pleased to quote as below:</div>
         
-        <div style="border-top: 1px solid #dbccbb; margin: 10px 0;"></div>
+        <div style="border-top: 1px solid #f3e5d7; margin: 7px 0;"></div>
         
         <!-- Products Table Header -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
             <thead style="background-color: transparent;">
                 <tr>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 8%;">Sr. No.</th>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 35%;">Description</th>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 8%;">QTY</th>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 10%;">Dimensions</th>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 15%;">Unit Price</th>
-                    <th style="color: #7030a0; font-size: 11px; font-weight: bold; padding: 5px 0; text-align: left; width: 15%;">Amount</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 5%;">Sr. No.</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 15%;">Description</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 5%;">QTY</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 10%;">Dimensions</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 10%;">Unit Price</th>
+                    <th style="color: #7030a0; font-size: 20px; font-weight: bold; text-align: left; width: 10%;">Amount</th>
                 </tr>
             </thead>
-            <tr>
-                <td colspan="6" style="border-bottom: 1px solid #000;"></td>
-            </tr>
         </table>
         
         <!-- Products by Category -->
         ${productsHTML}
         
         <!-- Summary Section -->
-        <div style="margin-left: auto; width: 230px; margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; background-color: rgb(223 213 202); border: 1px solid #dbccbb; padding: 5px 10px; margin-bottom: 2px; font-size: 11px;">
-                <span>Sub Total</span>
-                <span>₹${formatIndianNumber(quotationData.subtotal)}</span>
-            </div>
-            ${quotationData.discountAmount > 0 ? `
-            <div style="display: flex; justify-content: space-between; background-color: rgb(223 213 202); border: 1px solid #dbccbb; padding: 5px 10px; margin-bottom: 2px; font-size: 11px;">
-                <span> Discount </span>
-                <span>- ₹${formatIndianNumber(quotationData.discountAmount)}</span>
-            </div>
-            ` : ''}
-            <div style="display: flex; justify-content: space-between; background-color: rgb(223 213 202); border: 1px solid #dbccbb; padding: 5px 10px; margin-bottom: 2px; font-size: 11px;">
+        <div style="margin-left: auto; width: 230px;">
+            <div style="display: flex; justify-content: space-between; background-color: rgb(245, 238, 230); border: 1px solid #dbccbb; padding: 5px 10px; margin-bottom: 2px; font-size: 19px;">
                 <span>Total</span>
                 <span>₹${formatIndianNumber(quotationData.totalAmount)}</span>
             </div>
@@ -314,8 +348,10 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
         
         <!-- Payment Terms - FIXED: Made full width -->
         ${quotationData.paymentTerms.length > 0 ? `
-        <div style="width: 70%; margin: 20px 0; border: 1px solid #dbccbb;">
-            <div style="background-color: rgb(223 213 202); padding: 10px; font-weight: bold; font-size: 12px; text-align: center;">Payment Terms</div>
+        <div style="width: 100%; margin: 24px 0; border: 1px solid #dbccbb; border-collapse: collapse;">
+            <div style="background-color: rgb(245, 238, 230); padding: 8px 15px; font-weight: bold; font-size: 20px; border-bottom: 1px solid #dbccbb;">
+                Payment Terms
+            </div>
             <div>
                 ${paymentTermsHTML}
                 ${paymentTermsTotalHTML}
@@ -326,30 +362,42 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
         <!-- Quotation Terms -->
         ${quotationData.terms.length > 0 ? `
         <div style="margin-bottom: 20px;">
-            <div style="font-size: 11px; font-weight: bold; margin-bottom: 10px;">Quotation Terms:</div>
-            ${termsHTML}
+            <div style="font-size: 19px; font-weight: bold; margin-bottom: 10px;">Quotation Terms:</div>
+            <div style="padding: 5px 8px;">${termsHTML}</div>
         </div>
+        ` : ''}
+
+        <!-- Specifications -->
+        ${quotationData?.specifications && quotationData?.specifications?.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+              <div style="font-size: 19px; font-weight: bold; margin-bottom: 10px;">
+                Specifications:
+              </div>
+              <div style="padding: 5px 8px;">
+                ${specificationsHTML}
+              </div>
+            </div>
         ` : ''}
         
         <!-- Notes -->
         ${quotationData.notes ? `
         <div style="margin-bottom: 20px;">
-            <div style="font-size: 11px; font-weight: bold; margin-bottom: 10px;">Additional Notes:</div>
-            <div style="font-size: 11px; margin-bottom: 8px; display: flex;">
+            <div style="font-size: 19px; font-weight: bold; margin-bottom: 10px;">Additional Notes:</div>
+            <div style="font-size: 19px; margin-bottom: 8px; display: flex;">
                 <div>${quotationData.notes}</div>
             </div>
         </div>
         ` : ''}
         
         <!-- Closing Message -->
-        <div style="font-size: 11px; margin: 20px 0 40px 20px;">
+        <div style="font-size: 21px; margin: 20px 0 40px 20px;">
             Thank you for considering our quotation. We look forward to the opportunity to serve you.
         </div>
         
         <!-- Signature Section -->
         <div style="text-align: right; margin-top: 50px;">
-            <div style="font-size: 13px; font-weight: bold; margin-bottom: 40px;">${userCompanyName}</div>
-            <div style="font-size: 10px;">AUTHORIZED SIGNATURE</div>
+            <div style="font-size: 22px; font-weight: bold; margin-bottom: 40px;">${userCompanyName}</div>
+            <div style="font-size: 19px;">AUTHORIZED SIGNATURE</div>
         </div>
     </div>
 </body>

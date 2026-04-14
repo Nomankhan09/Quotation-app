@@ -17,20 +17,21 @@ import { RootState } from '@/store';
 import { router, useLocalSearchParams } from 'expo-router';
 import { setSelectedLead, resetBuilder, setEditMode, resetForNewQuotation } from '@/store/slices/quotationBuilderSlice';
 import { addLead } from '@/store/slices/leadsSlice';
-import { 
-  ArrowLeft, 
-  Search, 
-  User, 
-  Building, 
-  Mail, 
-  Check, 
-  Plus, 
-  X, 
+import {
+  ArrowLeft,
+  Search,
+  User,
+  Building,
+  Mail,
+  Check,
+  Plus,
+  X,
   Phone,
   Users,
   Briefcase,
   UserPlus,
 } from 'lucide-react-native';
+import { useForm, Controller } from 'react-hook-form';
 
 export default function SelectLeadScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
@@ -38,30 +39,31 @@ export default function SelectLeadScreen() {
   const dispatch = useDispatch<any>();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newLead, setNewLead] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    notes: '',
-  });
-  
+  const [isCreateLoading, setIsCreateLoading] = useState(false);
   const params = useLocalSearchParams();
   const editMode = params.editMode === 'true';
   const urlPrefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
-  
+
   const prefillData = persistedPrefillData || urlPrefillData;
-  
+
   const hasPrefilled = useRef(false);
-  const hasReset = useRef(false);
   const hasSetEditMode = useRef(false);
-  const hasSetCurrentStep = useRef(false);
   const hasRestoredSelectedLead = useRef(false);
+
+  const { control, handleSubmit, formState: { errors }, reset } = useForm({
+    defaultValues: {
+      full_name: '',
+      email: '',
+      phone: '',
+      company_name: '',
+      notes: '',
+    }
+  });
 
   useEffect(() => {
     if (editMode && !hasSetEditMode.current) {
-      dispatch(setEditMode({ 
-        isEditMode: true, 
+      dispatch(setEditMode({
+        isEditMode: true,
         quotationId: params.quotationId as string,
         prefillData: prefillData,
       }));
@@ -96,31 +98,25 @@ export default function SelectLeadScreen() {
     router.back();
   };
 
-  const handleAddLead = () => {
-    if (!newLead.full_name || !newLead.company_name) {
-      Alert.alert('Required Fields', 'Please fill in name and company');
-      return;
-    }
+  const onSubmit = async (data: any) => {
+    try {
+      setIsCreateLoading(true);
+      if (!data.email) {
+        data.email = "NA"
+      }
+      const createdLead = await dispatch(addLead(data)).unwrap();
 
-    if(!newLead.email){
-      newLead.email = "NA"
-    }
+      dispatch(setSelectedLead(createdLead.id));
+      reset();
+      setShowAddModal(false);
 
-    dispatch(addLead(newLead))
-      .unwrap()
-      .then((createdLead: any) => {
-        dispatch(setSelectedLead(createdLead.id));
-        setNewLead({
-          full_name: '',
-          email: '',
-          phone: '',
-          company_name: '',
-          notes: '',
-        });
-        setShowAddModal(false);
-        Alert.alert('Success', 'Contact added successfully!');
-        router.back();
-      });
+      Alert.alert('Success', 'Contact added successfully!');
+      router.back();
+    } catch (error: any) {
+      console.log('Create Lead Error:', error);
+    } finally {
+      setIsCreateLoading(false);
+    }
   };
 
   const handleBackPress = () => {
@@ -133,9 +129,9 @@ export default function SelectLeadScreen() {
 
   const renderLeadItem = ({ item }: { item: any }) => {
     const isSelected = selectedLead === item.id;
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.leadCard, isSelected && styles.selectedCard]}
         onPress={() => handleSelectLead(item.id)}
         activeOpacity={0.7}
@@ -144,18 +140,18 @@ export default function SelectLeadScreen() {
           <View style={styles.leadAvatar}>
             <User size={24} color={isSelected ? '#3B82F6' : '#64748B'} />
           </View>
-          
+
           <View style={styles.leadInfo}>
             <Text style={[styles.leadName, isSelected && styles.leadNameSelected]}>
               {item.full_name}
             </Text>
-            
+
             <View style={styles.leadDetails}>
               <View style={styles.leadDetailRow}>
                 <Briefcase size={14} color="#94A3B8" />
                 <Text style={styles.leadDetailText}>{item.company_name}</Text>
               </View>
-              
+
               {item.email && item.email !== 'NA' && (
                 <View style={styles.leadDetailRow}>
                   <Mail size={14} color="#94A3B8" />
@@ -164,7 +160,7 @@ export default function SelectLeadScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {item.phone && (
                 <View style={styles.leadDetailRow}>
                   <Phone size={14} color="#94A3B8" />
@@ -174,7 +170,7 @@ export default function SelectLeadScreen() {
             </View>
           </View>
         </View>
-        
+
         {isSelected && (
           <View style={styles.checkmarkWrapper}>
             <View style={styles.checkmark}>
@@ -195,8 +191,8 @@ export default function SelectLeadScreen() {
         {searchQuery ? 'No contacts found' : 'No contacts yet'}
       </Text>
       <Text style={styles.emptySubtitle}>
-        {searchQuery 
-          ? 'Try adjusting your search terms' 
+        {searchQuery
+          ? 'Try adjusting your search terms'
           : 'Add your first contact to get started'}
       </Text>
       {!searchQuery && (
@@ -223,14 +219,14 @@ export default function SelectLeadScreen() {
         >
           <ArrowLeft size={22} color="#0F172A" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <Text style={styles.title}>Select Client</Text>
           <Text style={styles.subtitle}>
             {filteredLeads.length} contact{filteredLeads.length !== 1 ? 's' : ''}
           </Text>
         </View>
-        
+
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
@@ -268,7 +264,7 @@ export default function SelectLeadScreen() {
               {leads.find(l => l.id === selectedLead)?.full_name} selected
             </Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => dispatch(setSelectedLead(''))}
             activeOpacity={0.7}
           >
@@ -309,7 +305,7 @@ export default function SelectLeadScreen() {
               </View>
               <Text style={styles.modalTitle}>Add New Contact</Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowAddModal(false)}
               style={styles.modalCloseButton}
               activeOpacity={0.7}
@@ -319,7 +315,7 @@ export default function SelectLeadScreen() {
           </View>
 
           {/* Form Content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -327,85 +323,146 @@ export default function SelectLeadScreen() {
           >
             <View style={styles.formSection}>
               <Text style={styles.formSectionLabel}>Basic Information</Text>
-              
+
+              {/* Full Name */}
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Full Name *</Text>
                 <View style={styles.inputWrapper}>
                   <User size={20} color="#94A3B8" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter full name"
-                    value={newLead.full_name}
-                    onChangeText={(text) => setNewLead({ ...newLead, full_name: text })}
-                    placeholderTextColor="#CBD5E1"
+                  <Controller
+                    control={control}
+                    name="full_name"
+                    rules={{ required: 'Full name is required' }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter full name"
+                        value={value}
+                        onChangeText={onChange}
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
                   />
+
                 </View>
+                {errors.full_name && (
+                  <Text style={{ color: 'red' }}>
+                    {errors.full_name.message}
+                  </Text>
+                )}
               </View>
 
+              {/* Phone number */}
               <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Company *</Text>
+                <Text style={styles.inputLabel}>Phone Number *</Text>
                 <View style={styles.inputWrapper}>
-                  <Building size={20} color="#94A3B8" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter company name"
-                    value={newLead.company_name}
-                    onChangeText={(text) => setNewLead({ ...newLead, company_name: text })}
-                    placeholderTextColor="#CBD5E1"
+                  <Phone size={20} color="#94A3B8" />
+                  <Controller
+                    control={control}
+                    name="phone"
+                    rules={{
+                      required: 'Phone number is required',
+                      pattern: {
+                        value: /^[0-9]{10}$/,
+                        message: 'Phone number must be exactly 10 digits',
+                      },
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="+1 (555) 000-0000"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="phone-pad"
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
                   />
+
                 </View>
+                {errors.phone && (
+                  <Text style={{ color: 'red' }}>{errors.phone.message}</Text>
+                )}
               </View>
             </View>
 
             <View style={styles.formSection}>
-              <Text style={styles.formSectionLabel}>Contact Details</Text>
-              
+              <Text style={styles.formSectionLabel}>Optional Fields</Text>
+
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Email Address</Text>
                 <View style={styles.inputWrapper}>
                   <Mail size={20} color="#94A3B8" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="email@example.com"
-                    value={newLead.email}
-                    onChangeText={(text) => setNewLead({ ...newLead, email: text })}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    placeholderTextColor="#CBD5E1"
+                  <Controller
+                    control={control}
+                    name="email"
+                    rules={{
+                      pattern: {
+                        value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                        message: 'Invalid email address',
+                      },
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="email@example.com"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
                   />
+
                 </View>
+                {errors.email && (
+                  <Text style={{ color: 'red' }}>{errors.email.message}</Text>
+                )}
               </View>
 
+              {/* Company */}
               <View style={styles.formGroup}>
-                <Text style={styles.inputLabel}>Phone Number</Text>
+                <Text style={styles.inputLabel}>Company </Text>
                 <View style={styles.inputWrapper}>
-                  <Phone size={20} color="#94A3B8" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="+1 (555) 000-0000"
-                    value={newLead.phone}
-                    onChangeText={(text) => setNewLead({ ...newLead, phone: text })}
-                    keyboardType="phone-pad"
-                    placeholderTextColor="#CBD5E1"
+                  <Building size={20} color="#94A3B8" />
+                  <Controller
+                    control={control}
+                    name="company_name"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter company name"
+                        value={value}
+                        onChangeText={onChange}
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
                   />
                 </View>
               </View>
-            </View>
 
-            <View style={styles.formSection}>
-              <Text style={styles.formSectionLabel}>Additional Notes</Text>
-              
-              <View style={styles.formGroup}>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Add any additional notes..."
-                  value={newLead.notes}
-                  onChangeText={(text) => setNewLead({ ...newLead, notes: text })}
-                  multiline
-                  numberOfLines={4}
-                  placeholderTextColor="#CBD5E1"
-                  textAlignVertical="top"
-                />
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionLabel}>Additional Notes</Text>
+
+                <View style={styles.formGroup}>
+                  <Controller
+                    control={control}
+                    name="notes"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={[styles.input, styles.textArea]}
+                        placeholder="Add any additional notes..."
+                        value={value}
+                        onChangeText={onChange}
+                        multiline
+                        numberOfLines={4}
+                        placeholderTextColor="#CBD5E1"
+                        textAlignVertical="top"
+                      />
+                    )}
+                  />
+                </View>
               </View>
             </View>
 
@@ -423,11 +480,13 @@ export default function SelectLeadScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.saveButton}
-              onPress={handleAddLead}
+              onPress={handleSubmit(onSubmit)}
               activeOpacity={0.8}
             >
               <UserPlus size={20} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Add Contact</Text>
+              <Text style={styles.saveButtonText}>
+                {isCreateLoading ? 'Saving...' : 'Add Contact'}
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -441,7 +500,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -496,7 +555,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  
+
   // Search
   searchSection: {
     paddingHorizontal: 20,
@@ -520,7 +579,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '500',
   },
-  
+
   // Selected Banner
   selectedBanner: {
     flexDirection: 'row',
@@ -542,7 +601,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#065F46',
   },
-  
+
   // List
   listContainer: {
     paddingHorizontal: 20,
@@ -553,7 +612,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  
+
   // Lead Card
   leadCard: {
     backgroundColor: '#FFFFFF',
@@ -625,7 +684,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // Empty State
   emptyState: {
     alignItems: 'center',
@@ -678,7 +737,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  
+
   // Modal
   modalContainer: {
     flex: 1,
@@ -723,7 +782,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // Form
   formScrollView: {
     flex: 1,
@@ -777,7 +836,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  
+
   // Modal Footer
   modalFooter: {
     flexDirection: 'row',

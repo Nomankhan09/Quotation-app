@@ -101,7 +101,19 @@ const productsSlice = createSlice({
         state.initialized = false;
       })
       .addCase(addProduct.fulfilled, (state, action) => {
-        state.products.unshift(action.payload);
+        const payload = action.payload;
+
+        if (!payload || !payload.id || !payload.product_name) {
+          return;
+        }
+
+        const exists = state.products.some(
+          (c) => String(c.id) === String(payload.id)
+        );
+
+        if (!exists) {
+          state.products.unshift(payload);
+        }
       });
   },
 });

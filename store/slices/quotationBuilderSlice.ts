@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { fetchTerms, createTerm, deleteTerm } from '@/services/termsService';
 import { fetchPaymentTerms, createPaymentTerm, deletePaymentTerm } from '@/services/paymentTermsService';
 import { RootState } from '@/store';
+import { fetchSpecifications } from '@/services/specificationsService';
 
 
 
@@ -41,6 +42,8 @@ interface QuotationBuilderState {
   discount: Discount;
   terms: Term[];
   selectedTerms: string[];
+  allSpecifications: any[];
+  selectedSpecifications: string[];
   paymentTerms: PaymentTerm[];
   selectedPaymentTerms: string[];
   loading: boolean;
@@ -109,6 +112,8 @@ const initialState: QuotationBuilderState = {
   loading: false,
   termsInitialized: false,
   paymentTermsInitialized: false,
+  allSpecifications: [],
+  selectedSpecifications: [],
   // currentStep: null,
   isEditMode: false,
   editingQuotationId: null,
@@ -141,7 +146,7 @@ export const addCustomTerm = createAsyncThunk(
       const state = getState() as RootState;
       const token = state.auth.token;
       if (!token) return rejectWithValue("No authentication token found");
-      
+
       const newTerm = await createTerm({ text: termText }, token);
       return newTerm;
     } catch (err: any) {
@@ -157,7 +162,7 @@ export const deleteOneTerm = createAsyncThunk(
       const state = getState() as RootState;
       const token = state.auth.token;
       if (!token) return rejectWithValue("No authentication token found");
-      
+
       await deleteTerm(termId, token);
       return termId;
     } catch (err: any) {
@@ -192,7 +197,7 @@ export const addCustomPaymentTerm = createAsyncThunk(
       const state = getState() as RootState;
       const token = state.auth.token;
       if (!token) return rejectWithValue("No authentication token found");
-      
+
       const newPaymentTerm = await createPaymentTerm(paymentTermData, token);
       return newPaymentTerm;
     } catch (err: any) {
@@ -208,9 +213,29 @@ export const deleteOnePaymentTerm = createAsyncThunk(
       const state = getState() as RootState;
       const token = state.auth.token;
       if (!token) return rejectWithValue("No authentication token found");
-      
+
       await deletePaymentTerm(paymentTermId, token);
       return paymentTermId;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
+// specification
+export const loadAllSpecifications = createAsyncThunk(
+  "quotationBuilder/loadAllSpecifications",
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const token = state.auth.token;
+      if (!token) {
+        return rejectWithValue("No authentication token found");
+      }
+      let page = 1;
+
+      const data = await fetchSpecifications(page, "", 50, token);
+      return data.data || data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }
@@ -221,6 +246,11 @@ const quotationBuilderSlice = createSlice({
   name: 'quotationBuilder',
   initialState,
   reducers: {
+    addSpecification: (state, action: PayloadAction<any>) => {
+      if (!action.payload || !action.payload.id) return;
+
+      state.allSpecifications.unshift(action.payload);
+    },
     setSelectedLead: (state, action: PayloadAction<string>) => {
       state.selectedLead = action.payload;
     },
@@ -239,6 +269,9 @@ const quotationBuilderSlice = createSlice({
     setPaymentTerms: (state, action: PayloadAction<string[]>) => {
       state.selectedPaymentTerms = action.payload;
     },
+    setSpecifications: (state, action: PayloadAction<string[]>) => {
+      state.selectedSpecifications = action.payload || [];
+    },
     saveQuotation: (state, action: PayloadAction<any>) => {
       // Reset builder state after saving
       state.selectedLead = null;
@@ -254,7 +287,7 @@ const quotationBuilderSlice = createSlice({
         state.selectedProducts = [];
         state.discount = { type: 'percentage', value: 0 };
         state.selectedTerms = state.terms.map(t => t.id);
-state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
+        state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
 
         // state.currentStep = 'select-lead'; // Reset to first step but keep edit mode
       } else {
@@ -274,8 +307,8 @@ state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
       state.selectedLead = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
-        state.selectedTerms = state.terms.map(t => t.id);
-  state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
+      state.selectedTerms = state.terms.map(t => t.id);
+      state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
       // state.currentStep = 'select-lead';
       state.isEditMode = false;
       state.editingQuotationId = null;
@@ -290,16 +323,20 @@ state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
     // setCurrentStep: (state, action: PayloadAction<QuotationBuilderState['currentStep']>) => {
     //   state.currentStep = action.payload;
     // },
-    
-    setEditMode: (state, action: PayloadAction<{ 
-      isEditMode: boolean; 
-      quotationId?: string | null; 
+
+    setEditMode: (state, action: PayloadAction<{
+      isEditMode: boolean;
+      quotationId?: string | null;
       prefillData?: any | null;
       // currentStep?: QuotationBuilderState['currentStep'];
     }>) => {
       state.isEditMode = action.payload.isEditMode;
       state.editingQuotationId = action.payload.quotationId || null;
       state.prefillData = action.payload.prefillData || null;
+      state.selectedSpecifications = action.payload.prefillData?.specifications || [];
+
+      const specs = action.payload.prefillData?.specifications || [];
+      state.selectedSpecifications = specs.map((s: any) => String(s.id));
       // if (action.payload.currentStep) {
       //   state.currentStep = action.payload.currentStep;
       // }
@@ -355,6 +392,33 @@ state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
       .addCase(deleteOneTerm.rejected, (state, action) => {
         console.error('Failed to delete term:', action.payload);
       })
+      .addCase(loadAllSpecifications.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(loadAllSpecifications.fulfilled, (state, action) => {
+        state.loading = false;
+        const specs = action.payload.data || action.payload || [];
+        state.allSpecifications = specs;
+
+        // ✅ AUTO-SELECT ALL IDS
+        if (state.isEditMode) {
+          // ✅ Edit mode: keep whatever was prefilled (selectedSpecifications
+          const preselected = state.prefillData?.specifications || [];
+          const preselectedIds = preselected.map((s: any) => String(s.id));
+
+          const validIds = specs
+            .map((s: any) => String(s.id))
+            .filter((id: string) => preselectedIds.includes(id));
+
+          state.selectedSpecifications = validIds;
+        } else {
+          // ✅ New quotation: auto-select all by default
+          state.selectedSpecifications = specs.map((s: any) => s.id);
+        }
+      })
+      .addCase(loadAllSpecifications.rejected, (state) => {
+        state.loading = false;
+      })
   },
 });
 
@@ -371,6 +435,8 @@ export const {
   // setCurrentStep,
   setEditMode,
   resetForNewQuotation,
+  setSpecifications,
+  addSpecification,
 } = quotationBuilderSlice.actions;
 
 export default quotationBuilderSlice.reducer;

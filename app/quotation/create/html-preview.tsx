@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Platform,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, router } from 'expo-router';
-import { 
-  ArrowLeft, 
-  Download, 
-  Share2, 
-  ZoomIn, 
+import {
+  ArrowLeft,
+  Download,
+  Share2,
+  ZoomIn,
   ZoomOut,
   Maximize,
 } from 'lucide-react-native';
@@ -39,7 +39,7 @@ export default function HtmlPreview() {
   // Enhanced HTML with responsive viewport and zoom controls
   // html-preview.tsx ke andar enhancedHtml ko aise update karein:
 
-const enhancedHtml = `
+  const enhancedHtml = `
   <!DOCTYPE html>
   <html>
     <head>
@@ -68,6 +68,96 @@ const enhancedHtml = `
           max-width: 100% !important;
           height: auto !important;
         }
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+        
+          html, body {
+            width: 100%;
+            height: 100%;
+          }
+      </style>
+    </head>
+    <body
+          style="
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;"
+    >
+      ${html}
+    </body>
+  </html>
+`;
+// Two separate HTML generators
+
+const getPreviewHtml = () => `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+      <style>
+        * {
+          box-sizing: border-box;
+          -webkit-text-size-adjust: 100%;
+        }
+        body {
+          zoom: 0.5;
+          margin: 0;
+          padding: 10px;
+          font-family: -apple-system, sans-serif;
+          background: #ffffff;
+          width: 100vw;
+          overflow-x: hidden;
+        }
+        table {
+          width: 100% !important;
+          border-collapse: collapse;
+          table-layout: auto;
+        }
+        img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+      </style>
+    </head>
+    <body style="width: 100%; padding: 20px; box-sizing: border-box;">
+      ${html}
+    </body>
+  </html>
+`;
+
+const getPdfHtml = () => `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        * {
+          box-sizing: border-box;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Helvetica, Arial, sans-serif;
+          background: #ffffff;
+          width: 100%;
+        }
+        table {
+          width: 100% !important;
+          border-collapse: collapse;
+        }
+        img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        @page {
+          size: A4;
+          margin: 10mm;
+        }
       </style>
     </head>
     <body>
@@ -79,9 +169,9 @@ const enhancedHtml = `
   const handleDownload = async () => {
     try {
       Alert.alert('Generating PDF', 'Please wait...');
-      
+
       const { uri } = await Print.printToFileAsync({
-        html: enhancedHtml,
+         html: getPdfHtml(),
       });
 
       if (await Sharing.isAvailableAsync()) {
@@ -102,7 +192,7 @@ const enhancedHtml = `
   const handleShare = async () => {
     try {
       const { uri } = await Print.printToFileAsync({
-        html: enhancedHtml,
+         html: getPdfHtml(),
       });
 
       if (await Sharing.isAvailableAsync()) {
@@ -140,12 +230,12 @@ const enhancedHtml = `
         >
           <ArrowLeft size={22} color="#0F172A" />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Preview</Text>
           {/* <Text style={styles.headerSubtitle}>Zoom: {(zoomLevel * 100).toFixed(0)}%</Text> */}
         </View>
-        
+
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerIconButton}
@@ -165,10 +255,10 @@ const enhancedHtml = `
             <Text style={styles.loadingText}>Loading preview...</Text>
           </View>
         )}
-        
+
         <WebView
           originWhitelist={['*']}
-          source={{ html: enhancedHtml }}
+          source={{ html: getPreviewHtml() }}
           style={styles.webView}
           scalesPageToFit={true}
           scrollEnabled={true}
@@ -235,7 +325,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -289,7 +379,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // WebView
   webViewContainer: {
     flex: 1,
@@ -316,7 +406,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
   },
-  
+
   // Zoom Controls
   zoomControls: {
     position: 'absolute',
@@ -343,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  
+
   // Footer
   footer: {
     paddingHorizontal: 20,
@@ -380,7 +470,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  
+
   // Error
   errorContainer: {
     flex: 1,

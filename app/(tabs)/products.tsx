@@ -15,14 +15,14 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import { addProduct, Product, setProductSearch } from '@/store/slices/productsSlice';
-// import { Plus, X, IndianRupee, ChevronDown } from 'lucide-react-native';
+import { Plus, X, IndianRupee, ChevronDown } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 export default function ProductsScreen() {
   const { products, search } = useSelector((state: RootState) => state.products);
   const { categories } = useSelector((state: RootState) => state.categories);
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
@@ -36,8 +36,8 @@ export default function ProductsScreen() {
 
   // Simple local search
   const filteredProducts = products.filter(product =>
-    product.product_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
+    product.product_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSearchChange = (text: string) => {
@@ -45,13 +45,13 @@ export default function ProductsScreen() {
     dispatch(setProductSearch(text));
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!newProduct.name || !newProduct.price || !newProduct.categoryId) {
       Alert.alert('Error', 'Please fill in all fields and select a category');
       return;
     }
 
-    if(!newProduct.description){
+    if (!newProduct.description) {
       newProduct.description = 'NA'
     }
 
@@ -61,12 +61,17 @@ export default function ProductsScreen() {
       return;
     }
 
-    dispatch(addProduct({
+    const res = await dispatch(addProduct({
       product_name: newProduct.name,
       description: newProduct.description,
       unit_price: price,
       category_id: Number(newProduct.categoryId)
-    }));
+    })).unwrap();
+
+    if (res.status === 400) {
+      Alert.alert('Error', res.message);
+      return;
+    }
 
     setNewProduct({
       name: '',
@@ -101,7 +106,7 @@ export default function ProductsScreen() {
       <Text style={styles.productDescription} numberOfLines={3}>
         {item.description}
       </Text>
-      
+
       <View style={styles.priceContainer}>
         <IndianRupee size={16} color="#10B981" />
         <Text style={styles.price}>
@@ -148,6 +153,11 @@ export default function ProductsScreen() {
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No products found</Text>
+          </View>
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -171,7 +181,7 @@ export default function ProductsScreen() {
           </View>
 
           {/* Scrollable form content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -227,7 +237,7 @@ export default function ProductsScreen() {
                 <ChevronDown size={20} color="#64748B" />
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.addCategoryButton}
                 onPress={handleAddCategory}
               >
@@ -270,8 +280,8 @@ export default function ProductsScreen() {
                 {categories.filter(cat =>
                   cat.category_name.toLowerCase().includes(categorySearch.toLowerCase())
                 ).length === 0 && (
-                  <Text style={{ padding: 16, color: '#64748B' }}>No categories found</Text>
-                )}
+                    <Text style={{ padding: 16, color: '#64748B' }}>No categories found</Text>
+                  )}
               </View>
             )}
 
@@ -580,5 +590,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
   },
 });

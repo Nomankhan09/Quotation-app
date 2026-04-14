@@ -35,7 +35,6 @@ export default function LoginScreen() {
     try {
       dispatch(loginStart());
       const data = await login(email, password);
-      console.log("Login response data:", data);
       dispatch(loginSuccess({ token: data.token, user: data.user }));
       await Promise.all([
         dispatch(loadAllLeads()),
@@ -45,23 +44,26 @@ export default function LoginScreen() {
       setLoading(false);
       Alert.alert("Success", `Welcome back ${data.user.first_name}!`);
     } catch (error: any) {
-  console.log("FULL ERROR:", JSON.stringify(error, null, 2));
+      console.log("FULL ERROR:", error);
 
-  if (error.response) {
-    console.log("Response error:", error.response.data);
-  } else if (error.request) {
-    console.log("No response received:", error.request);
-  } else {
-    console.log("Error message:", error.message);
-  }
+      if (error.response) {
+        console.log("Response error:", error.response);
+        if (error.response.data?.message === "Invalid Credentials") {
+          Alert.alert("Error",error.response.data.message)
+        }
+      } else if (error.request) {
+        console.log("No response received:", error.request);
+      } else {
+        console.log("Error message:", error.message);
+      }
 
-  dispatch(loginFailure(error?.response?.data?.message || "Login failed"));
-  setLoading(false);
-}
+      dispatch(loginFailure(error?.response?.data?.message || "Login failed"));
+      setLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >

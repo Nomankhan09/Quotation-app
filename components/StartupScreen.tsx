@@ -6,6 +6,7 @@ import { AppDispatch } from '@/store';
 import { loadAllLeads } from '@/store/slices/leadsSlice';
 import { loadAllProducts } from '@/store/slices/productsSlice';
 import { loadAllCategories } from '@/store/slices/categoriesSlice';
+import { loadAllSpecifications } from '@/store/slices/specificationsSlice';
 
 interface StartupScreenProps {
   onComplete: () => void;
@@ -23,7 +24,8 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
         await Promise.all([
           dispatch(loadAllLeads()),
           dispatch(loadAllProducts()),
-          dispatch(loadAllCategories())
+          dispatch(loadAllCategories()),
+          dispatch(loadAllSpecifications())
         ]);
         
         // Add a small delay to ensure smooth transition

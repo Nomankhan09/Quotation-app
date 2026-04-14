@@ -14,13 +14,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { router, useLocalSearchParams } from 'expo-router';
 import { fetchQuotationById } from '@/services/quotationService';
-import { 
-  ArrowLeft, 
-  Edit, 
-  FileText, 
-  User, 
-  Package, 
-  IndianRupee, 
+import {
+  ArrowLeft,
+  Edit,
+  FileText,
+  User,
+  Package,
+  IndianRupee,
   Download,
   Calendar,
   CheckCircle,
@@ -34,21 +34,28 @@ import {
   Mail,
   Phone,
   X,
+  SlidersHorizontal,
 } from 'lucide-react-native';
 import { generateQuotationHTML } from '@/services/pdfService';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
-import { 
-  setEditMode, 
-  setSelectedLead, 
-  setSelectedProducts, 
-  setDiscount, 
-  setTerms, 
+import {
+  setEditMode,
+  setSelectedLead,
+  setSelectedProducts,
+  setDiscount,
+  setTerms,
   setPaymentTerms,
   // setCurrentStep 
 } from '@/store/slices/quotationBuilderSlice';
 import { WebView } from 'react-native-webview';
+
+interface ISpecification {
+  id: number;
+  item: string;
+  description: any[];
+}
 
 interface QuotationDetails {
   id: string;
@@ -68,6 +75,7 @@ interface QuotationDetails {
   notes?: string;
   terms: string[];
   paymentTerms: any[];
+  specifications?: ISpecification[];
 }
 
 export default function QuotationDetailsScreen() {
@@ -75,10 +83,10 @@ export default function QuotationDetailsScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
   const { user } = useSelector((state: RootState) => state.auth);
   const token = useSelector((state: RootState) => state.auth.token);
-  
+
   const allTerms = useSelector((state: RootState) => state.quotationBuilder.terms);
   const allPaymentTerms = useSelector((state: RootState) => state.quotationBuilder.paymentTerms);
-  
+
   const dispatch = useDispatch();
   const [quotation, setQuotation] = useState<QuotationDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +102,7 @@ export default function QuotationDetailsScreen() {
   const loadQuotationDetails = async () => {
     try {
       setLoading(true);
-      
+
       if (!token) {
         Alert.alert('Error', 'Authentication required');
         return;
@@ -109,39 +117,40 @@ export default function QuotationDetailsScreen() {
     }
   };
 
- const handlePreview = () => {
-  if (!quotation || !lead) {
-    Alert.alert('Error', 'Quotation data missing');
-    return;
-  }
+  const handlePreview = () => {
+    if (!quotation || !lead) {
+      Alert.alert('Error', 'Quotation data missing');
+      return;
+    }
 
-  const quotationData = {
-    user,
-    quotationNumber: quotation.quotationNumber,
-    lead,
-    products: quotation.products,
-    subtotal: quotation.subtotal,
-    discount: quotation.discount,
-    discountAmount: quotation.discountAmount,
-    totalAmount: quotation.totalAmount,
-    terms: quotation.terms || [],
-    paymentTerms: quotation.paymentTerms || [],
-    created_at: quotation.created_at,
+    const quotationData = {
+      user,
+      quotationNumber: quotation.quotationNumber,
+      lead,
+      products: quotation.products,
+      subtotal: quotation.subtotal,
+      discount: quotation.discount,
+      specifications: quotation.specifications || [],
+      discountAmount: quotation.discountAmount,
+      totalAmount: quotation.totalAmount,
+      terms: quotation.terms || [],
+      paymentTerms: quotation.paymentTerms || [],
+      created_at: quotation.created_at,
+    };
+
+    const html = generateQuotationHTML(quotationData);
+
+    router.push({
+      pathname: '/quotation/create/html-preview',
+      params: { html },
+    });
   };
-
-  const html = generateQuotationHTML(quotationData);
-
-  router.push({
-    pathname: '/quotation/create/html-preview',
-    params: { html },
-  });
-};
 
 
 
   const handleEdit = () => {
     if (!quotation) return;
-    
+
     try {
       dispatch(setSelectedLead(quotation.leadId));
       const normalizedProducts = quotation.products.map((p: any) => ({
@@ -153,17 +162,17 @@ export default function QuotationDetailsScreen() {
         type: quotation.discount.type === 'percent' ? 'percentage' : 'fixed',
         value: quotation.discount.value
       }));
-      
+
       if (quotation.terms && quotation.terms.length > 0) {
         const termIds = allTerms
           .filter(t => quotation.terms?.includes(t.text))
           .map(t => t.id);
-        
+
         if (termIds.length > 0) {
           dispatch(setTerms(termIds));
         }
       }
-      
+
       if (quotation.paymentTerms && quotation.paymentTerms.length > 0) {
         const paymentTermIds = quotation.paymentTerms
           .map(pt => {
@@ -173,19 +182,19 @@ export default function QuotationDetailsScreen() {
             return matchingTerm ? matchingTerm.id : pt.id;
           })
           .filter(Boolean);
-        
+
         if (paymentTermIds.length > 0) {
           dispatch(setPaymentTerms(paymentTermIds));
         }
       }
-      
-      dispatch(setEditMode({ 
-        isEditMode: true, 
+
+      dispatch(setEditMode({
+        isEditMode: true,
         quotationId: quotation.id,
         prefillData: quotation,
         // currentStep: 'select-lead'
       }));
-      
+
       router.push('/quotation/create');
     } catch (error) {
       console.error('Error setting up edit mode:', error);
@@ -195,7 +204,6 @@ export default function QuotationDetailsScreen() {
 
   const handleCreatePDF = async () => {
     if (!quotation || !lead) return;
-    
     try {
       Alert.alert('Generating PDF', 'Please wait...');
 
@@ -221,6 +229,7 @@ export default function QuotationDetailsScreen() {
           unit: product.unit,
           totalPrice: product.totalPrice,
         })),
+        specifications: quotation.specifications || [],
         subtotal: quotation.subtotal || 0,
         discount: quotation.discount || { type: 'percent', value: 0 },
         discountAmount: quotation.discountAmount || 0,
@@ -238,14 +247,14 @@ export default function QuotationDetailsScreen() {
       const today = new Date();
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const dateStr = `${today.getDate()}_${months[today.getMonth()]}_${today.getFullYear()}`;
-      
+
       const formattedLeadName = lead.full_name
         .replace(/[^a-zA-Z0-9\s]/g, '')
         .trim()
         .replace(/\s+/g, '_');
       const timestamp = Date.now();
       const customFileName = `${formattedLeadName}_${(user?.company_name || '').split(' ').join('_')}_Quote_${dateStr}_${timestamp}.pdf`;
-      
+
       const tempFile = new File(uri);
       const newFile = new File(Paths.cache, customFileName);
       tempFile.copy(newFile);
@@ -269,39 +278,39 @@ export default function QuotationDetailsScreen() {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'draft':
-        return { 
-          color: '#64748B', 
-          bg: '#F1F5F9', 
+        return {
+          color: '#64748B',
+          bg: '#F1F5F9',
           icon: Clock,
-          label: 'Draft' 
+          label: 'Draft'
         };
       case 'sent':
-        return { 
-          color: '#3B82F6', 
-          bg: '#DBEAFE', 
+        return {
+          color: '#3B82F6',
+          bg: '#DBEAFE',
           icon: Send,
-          label: 'Sent' 
+          label: 'Sent'
         };
       case 'accepted':
-        return { 
-          color: '#10B981', 
-          bg: '#D1FAE5', 
+        return {
+          color: '#10B981',
+          bg: '#D1FAE5',
           icon: CheckCircle,
-          label: 'Accepted' 
+          label: 'Accepted'
         };
       case 'rejected':
-        return { 
-          color: '#EF4444', 
-          bg: '#FEE2E2', 
+        return {
+          color: '#EF4444',
+          bg: '#FEE2E2',
           icon: XCircle,
-          label: 'Rejected' 
+          label: 'Rejected'
         };
       default:
-        return { 
-          color: '#64748B', 
-          bg: '#F1F5F9', 
+        return {
+          color: '#64748B',
+          bg: '#F1F5F9',
           icon: Clock,
-          label: 'Unknown' 
+          label: 'Unknown'
         };
     }
   };
@@ -359,8 +368,8 @@ export default function QuotationDetailsScreen() {
           <FileText size={56} color="#CBD5E1" />
           <Text style={styles.errorTitle}>Quotation not found</Text>
           <Text style={styles.errorSubtitle}>Unable to load quotation details</Text>
-          <TouchableOpacity 
-            style={styles.retryButton} 
+          <TouchableOpacity
+            style={styles.retryButton}
             onPress={loadQuotationDetails}
             activeOpacity={0.7}
           >
@@ -387,8 +396,8 @@ export default function QuotationDetailsScreen() {
           <ArrowLeft size={22} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
-        <TouchableOpacity 
-          style={styles.previewButton} 
+        <TouchableOpacity
+          style={styles.previewButton}
           onPress={handlePreview}
           activeOpacity={0.7}
         >
@@ -396,8 +405,8 @@ export default function QuotationDetailsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -408,7 +417,7 @@ export default function QuotationDetailsScreen() {
               <FileText size={20} color="#3B82F6" />
               <Text style={styles.quotationNumber}>#{quotation.quotationNumber}</Text>
             </View>
-            
+
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
               <StatusIcon size={14} color={statusConfig.color} />
               <Text style={[styles.statusText, { color: statusConfig.color }]}>
@@ -502,8 +511,8 @@ export default function QuotationDetailsScreen() {
 
           <View style={styles.productsContainer}>
             {quotation.products && quotation.products.map((product, index) => (
-              <View 
-                key={index} 
+              <View
+                key={index}
                 style={[
                   styles.productItem,
                   index === quotation.products.length - 1 && styles.productItemLast
@@ -570,8 +579,8 @@ export default function QuotationDetailsScreen() {
             {quotation.discountAmount > 0 && (
               <View style={styles.pricingRow}>
                 <Text style={styles.pricingLabel}>
-                  Discount 
-                  {quotation.discount.type === 'percent' && 
+                  Discount
+                  {quotation.discount.type === 'percent' &&
                     ` (${quotation.discount.value}%)`}
                 </Text>
                 <Text style={[styles.pricingValue, styles.discountValue]}>
@@ -638,6 +647,48 @@ export default function QuotationDetailsScreen() {
           </View>
         )}
 
+        {/* specifications */}
+        {quotation.specifications && quotation.specifications.length > 0 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardIconWrapper, { backgroundColor: '#e2d8f9' }]}>
+                <SlidersHorizontal size={20} color="#8B5CF6" />
+              </View>
+              <Text style={styles.cardTitle}>Specifications</Text>
+            </View>
+
+            <View>
+              {quotation.specifications.map((spec: any, idx: number) => (
+                <View
+                  key={spec.id}
+                  style={[
+                    styles.specItem,
+                    idx < quotation.specifications.length - 1 && styles.specItemBorder,
+                  ]}
+                >
+                  {/* Bullet + Title row */}
+                  <View style={styles.specTitleRow}>
+                    <View style={styles.specBullet} />
+                    <Text style={styles.specTitle}>{spec.item}</Text>
+                  </View>
+
+                  {/* Descriptions */}
+                  {spec.description?.length > 0 && (
+                    <View style={styles.specDescList}>
+                      {spec.description.map((desc: any, index: number) => (
+                        <View key={index} style={styles.specDescRow}>
+                          <Text style={styles.specDescBullet}>•</Text>
+                          <Text style={styles.specDescText}>{desc.description}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Notes */}
         {quotation.notes && (
           <View style={styles.card}>
@@ -667,7 +718,7 @@ export default function QuotationDetailsScreen() {
           <Download size={20} color="#FFFFFF" />
           <Text style={styles.footerButtonText}>Download PDF</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={[styles.footerButton, styles.editButton]}
           onPress={handleEdit}
@@ -686,7 +737,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -740,7 +791,7 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
-  
+
   // Content
   content: {
     flex: 1,
@@ -750,7 +801,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 24,
   },
-  
+
   // Loading & Error
   loadingContainer: {
     flex: 1,
@@ -793,7 +844,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  
+
   // Hero Card
   heroCard: {
     backgroundColor: '#FFFFFF',
@@ -891,7 +942,7 @@ const styles = StyleSheet.create({
     color: '#059669',
     letterSpacing: -0.8,
   },
-  
+
   // Card
   card: {
     backgroundColor: '#FFFFFF',
@@ -929,7 +980,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.2,
   },
-  
+
   // Client Details
   clientDetails: {
     gap: 16,
@@ -963,7 +1014,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F172A',
   },
-  
+
   // Products
   productsContainer: {
     gap: 16,
@@ -1042,7 +1093,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#10B981',
   },
-  
+
   // Pricing
   pricingContainer: {
     gap: 12,
@@ -1087,7 +1138,7 @@ const styles = StyleSheet.create({
     color: '#10B981',
     letterSpacing: -0.5,
   },
-  
+
   // Terms
   termsContainer: {
     gap: 10,
@@ -1125,7 +1176,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
   },
-  
+
   // Notes
   notesContainer: {
     backgroundColor: '#F8FAFC',
@@ -1138,7 +1189,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
   },
-  
+
   // Footer
   footer: {
     position: 'absolute',
@@ -1184,5 +1235,53 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  specItem: {
+    paddingVertical: 12,
+  },
+  specItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  specTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',   // keeps bullet top-aligned on multiline titles
+    gap: 10,
+  },
+  specBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#8B5CF6',
+    marginTop: 5,               // visually centers with first line of text
+    flexShrink: 0,
+  },
+  specTitle: {
+    flex: 1,                    // prevents overflow on long titles
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  specDescList: {
+    marginTop: 6,
+    marginLeft: 16,             // indent under the title (bullet width + gap)
+    gap: 4,
+  },
+  specDescRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  specDescBullet: {
+    fontSize: 12,
+    color: '#8B5CF6',
+    lineHeight: 19,
+    flexShrink: 0,
+  },
+  specDescText: {
+    flex: 1,                    // prevents overflow on long descriptions
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 19,
   },
 });

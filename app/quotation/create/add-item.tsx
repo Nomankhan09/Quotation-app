@@ -27,6 +27,7 @@ import {
 import { addProduct } from '@/store/slices/productsSlice';
 import { addCategory } from '@/store/slices/categoriesSlice';
 import { useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AddItemScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -34,10 +35,10 @@ export default function AddItemScreen() {
   const { categories } = useSelector((s: RootState) => s.categories);
   const { selectedProducts } = useSelector((s: RootState) => s.quotationBuilder);
 
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>();
   // const [showMainCategoryDropdown, setShowMainCategoryDropdown] = useState(false);
   const [showMainCategoryDropdown, setShowMainCategoryDropdown] = useState(false);
-const [showModalCategoryDropdown, setShowModalCategoryDropdown] = useState(false);
+  const [showModalCategoryDropdown, setShowModalCategoryDropdown] = useState(false);
 
 
   const [productName, setProductName] = useState('');
@@ -281,23 +282,24 @@ const [showModalCategoryDropdown, setShowModalCategoryDropdown] = useState(false
 
     const p = res.payload;
 
-    setCategoryId(String(p.category_id));
+    // setCategoryId(String(p.category_id));
     setProductName(p.product_name);
     setUnitPrice(Number(p.unit_price));
     setSelectedProduct(p);
 
-    setModalCategoryId(null);
+    // setModalCategoryId(null);
     setModalProductName('');
     setModalPrice('');
     setModalDescription('');
     setShowAddProductModal(false);
   };
 
-  const handleCategoryPick = (catId: string) => {
+  const handleCategoryPick = async (catId: string) => {
     if (showAddProductModal) {
       setModalCategoryId(catId);
     } else {
       setCategoryId(catId);
+      await AsyncStorage.setItem('lastCategoryId', String(catId));
     }
     setShowMainCategoryDropdown(false);
     if (!selectedProduct && productName.length > 0) {
@@ -317,534 +319,547 @@ const [showModalCategoryDropdown, setShowModalCategoryDropdown] = useState(false
     ? categories.find(c => String(c.id) === String(modalCategoryId))?.category_name
     : null;
 
+  useEffect(() => {
+    const loadCategory = async () => {
+      const saved = await AsyncStorage.getItem('lastCategoryId');
+      if (saved) {
+        setCategoryId(saved);
+      }
+    };
+
+    loadCategory();
+  }, []);
+
   return (
     <KeyboardAvoidingView
-    style={{ flex: 1 }}
-    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-  >
-    <TouchableWithoutFeedback onPress={closeAllOverlays}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={22} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{isEditMode ? 'Edit Item' : 'Add Item'}</Text>
-          <View style={{ width: 22 }} />
-        </View>
-
-        <ScrollView 
-          style={styles.scrollView} 
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Category Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Category *</Text>
-            <View style={styles.categoryRow}>
-              <TouchableOpacity
-                style={styles.categoryPicker}
-                onPress={() => {
-                  setShowMainCategoryDropdown(v => !v);
-                  setShowSuggestions(false);
-                  setShowUnitDropdown(false);
-                  Keyboard.dismiss();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.categoryPickerText,
-                  !categoryId && styles.placeholderText
-                ]}>
-                  {selectedCategoryName || 'Select category'}
-                </Text>
-                <ChevronDown size={18} color="#64748B" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickAddButton}
-                onPress={() => {
-                  setShowAddCategoryModal(true);
-                  setShowMainCategoryDropdown(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Plus size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Category Dropdown */}
-            {showMainCategoryDropdown && (
-              <View style={[styles.dropdown, { maxHeight: 250 }]}> 
-    <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
-      {categories.map((item) => (
-        <TouchableOpacity 
-          key={item.id}
-          style={styles.dropdownItem} 
-          onPress={() => handleCategoryPick(item.id)}
-        >
-          <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-          <Text style={styles.dropdownItemText}>{item.category_name}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  </View>
-            )}
-          </View>
-
-          {/* Product Name */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Product / Item Name *</Text>
-            <View style={styles.itemRow}>
-              <View style={styles.inputWrapper}>
-                <Search size={18} color="#94A3B8" style={styles.searchIcon} />
-                <TextInput
-                  ref={inputRef}
-                  style={styles.inputWithIcon}
-                  placeholder="Search or enter new product name"
-                  placeholderTextColor="#94A3B8"
-                  value={productName}
-                  onChangeText={(t) => {
-                    setProductName(t);
-                    setSelectedProduct(null);
-                    setIsNewProduct(false);
-                    if (t.length > 0 && suggestions.length > 0) setShowSuggestions(true);
-                    else setShowSuggestions(false);
-                  }}
-                  onFocus={() => {
-                    if (productName.length > 0 && suggestions.length > 0) setShowSuggestions(true);
-                  }}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.quickAddButton}
-                onPress={() => setShowAddProductModal(true)}
-                activeOpacity={0.7}
-              >
-                <Plus size={18} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Suggestions */}
-            {showSuggestions && suggestions.length > 0 && (
-              <View style={styles.suggestionBox}>
-                <FlatList
-                  keyboardShouldPersistTaps="always"
-                  data={suggestions}
-                  keyExtractor={(i) => String(i.id)}
-                  renderItem={({ item }) => {
-                    const cat = categories.find(c => String(c.id) === String(item.category_id));
-                    return (
-                      <TouchableOpacity 
-                        style={styles.suggestionRow} 
-                        onPress={() => onSelectSuggestion(item)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.suggestionContent}>
-                          <Text style={styles.suggName}>{item.product_name}</Text>
-                          <Text style={styles.suggMeta}>
-                            {cat ? cat.category_name : 'Uncategorized'}
-                          </Text>
-                        </View>
-                        <Text style={styles.suggPrice}>₹{Number(item.unit_price).toFixed(2)}</Text>
-                      </TouchableOpacity>
-                    );
-                  }}
-                  ItemSeparatorComponent={() => <View style={styles.separator} />}
-                />
-              </View>
-            )}
-
-            {/* Add New Product Option */}
-            {!selectedProduct && !isNewProduct && productName.length > 0 && categoryId && suggestions.length === 0 && (
-              <TouchableOpacity
-                style={styles.addNewRow}
-                onPress={() => {
-                  setIsNewProduct(true);
-                  setSaveLater(true);
-                  setShowSuggestions(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Plus size={16} color="#2563EB" />
-                <Text style={styles.addNewText}>Add "{productName}" as new product</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Configuration Section */}
-          {categoryId && (
-            <View style={styles.configSection}>
-              <View style={styles.configHeader}>
-                <Text style={styles.configTitle}>
-                  {productName || 'New Item'}
-                </Text>
-                {selectedProduct && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Existing</Text>
-                  </View>
-                )}
-                {isNewProduct && (
-                  <View style={[styles.badge, styles.badgeNew]}>
-                    <Text style={styles.badgeText}>New</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Price & Quantity Row */}
-              <View style={styles.configRow}>
-                <View style={styles.configField}>
-                  <Text style={styles.fieldLabel}>Unit Price</Text>
-                  <View style={styles.priceInputWrapper}>
-                    <Text style={styles.currencySymbol}>₹</Text>
-                    <TextInput
-                      style={styles.priceInput}
-                      keyboardType="decimal-pad"
-                      value={unitPrice.toString()}
-                      onChangeText={(t) => setUnitPrice(Number(t) || 0)}
-                      placeholder="0.00"
-                      placeholderTextColor="#CBD5E1"
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.configField}>
-                  <Text style={styles.fieldLabel}>Quantity</Text>
-                  <View style={styles.counterWrapper}>
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeQty(-1)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.counterInput}
-                      keyboardType="number-pad"
-                      value={quantity.toString()}
-                      onChangeText={(t) => setQuantity(Math.max(1, Number(t) || 1))}
-                    />
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeQty(1)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {/* Dimensions Row */}
-              <View style={styles.dimensionsRow}>
-                <View style={styles.dimensionField}>
-                  <Text style={styles.fieldLabel}>Length</Text>
-                  <View style={styles.counterWrapper}>
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeLength(-0.1)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.counterInput}
-                      keyboardType="decimal-pad"
-                      value={lengthVal.toString()}
-                      onChangeText={(t) => setLengthVal(Number(t) || 0)}
-                    />
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeLength(0.1)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <Text style={styles.multiplySymbol}>×</Text>
-
-                <View style={styles.dimensionField}>
-                  <Text style={styles.fieldLabel}>Width</Text>
-                  <View style={styles.counterWrapper}>
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeWidth(-0.1)}
-                      activeOpacity={0.7}
-                    >
-                      <Minus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                    <TextInput
-                      style={styles.counterInput}
-                      keyboardType="decimal-pad"
-                      value={widthVal.toString()}
-                      onChangeText={(t) => setWidthVal(Number(t) || 0)}
-                    />
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => changeWidth(0.1)}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={16} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.unitField}>
-                  <Text style={styles.fieldLabel}>Unit</Text>
-                  <TouchableOpacity
-                    style={styles.unitPicker}
-                    onPress={() => setShowUnitDropdown(v => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.unitText}>{unit}</Text>
-                    <ChevronDown size={14} color="#64748B" />
-                  </TouchableOpacity>
-                  
-                  {showUnitDropdown && (
-                    <View style={styles.unitDropdown}>
-                      <TouchableOpacity
-                        style={styles.unitOption}
-                        onPress={() => {
-                          setUnit('feet');
-                          setShowUnitDropdown(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.unitOptionText}>feet</Text>
-                      </TouchableOpacity>
-                      <View style={styles.separator} />
-                      <TouchableOpacity
-                        style={styles.unitOption}
-                        onPress={() => {
-                          setUnit('inches');
-                          setShowUnitDropdown(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.unitOptionText}>inches</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Total Display */}
-              <View style={styles.totalContainer}>
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total Amount</Text>
-                  <Text style={styles.totalAmount}>₹{total.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.calculation}>
-                  {quantity} × {lengthVal} × {widthVal} × ₹{unitPrice.toFixed(2)}
-                </Text>
-              </View>
-
-              {/* Save Later Toggle */}
-              {isNewProduct && (
-                <TouchableOpacity
-                  style={styles.saveLaterRow}
-                  onPress={() => setSaveLater(v => !v)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.toggle, saveLater && styles.toggleOn]}>
-                    <View style={[styles.knob, saveLater && styles.knobOn]} />
-                  </View>
-                  <View style={styles.saveLaterContent}>
-                    <Text style={styles.saveLaterText}>Save as product</Text>
-                    <Text style={styles.saveLaterDesc}>
-                      Add this to your product catalog for future use
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Save Button (Fixed at bottom) */}
-        {categoryId && (
-          <View style={styles.footer}>
-            <TouchableOpacity 
-              style={styles.saveBtn} 
-              onPress={handleSave}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.saveText}>
-                {isEditMode ? 'Update Item' : 'Add to Quotation'}
-              </Text>
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+    >
+      <TouchableWithoutFeedback onPress={closeAllOverlays}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={22} color="#0F172A" />
             </TouchableOpacity>
+            <Text style={styles.title}>{isEditMode ? 'Edit Item' : 'Add Item'}</Text>
+            <View style={{ width: 22 }} />
           </View>
-        )}
 
-        {/* Add Category Modal */}
-        <Modal 
-          visible={showAddCategoryModal} 
-          transparent 
-          animationType="fade" 
-          onRequestClose={() => setShowAddCategoryModal(false)}
-        >
-          <TouchableWithoutFeedback onPress={() => setShowAddCategoryModal(false)}>
-            <View style={styles.modalOverlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add Category</Text>
-                <TouchableOpacity onPress={() => setShowAddCategoryModal(false)}>
-                  <X size={22} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <TextInput
-                placeholder="Category name"
-                placeholderTextColor="#94A3B8"
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                style={styles.modalInput}
-                autoFocus
-              />
-
-              <View style={styles.modalActions}>
+          <ScrollView
+            style={styles.scrollView}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Category Selection */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Category *</Text>
+              <View style={styles.categoryRow}>
                 <TouchableOpacity
-                  onPress={() => setShowAddCategoryModal(false)}
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleCreateCategoryInline(newCategoryName)}
-                  style={[styles.modalBtn, styles.createBtn]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.createText}>Create</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Add Product Modal */}
-        <Modal 
-          visible={showAddProductModal} 
-          transparent 
-          animationType="fade" 
-          onRequestClose={() => setShowAddProductModal(false)}
-        >
-          <TouchableWithoutFeedback onPress={() => setShowAddProductModal(false)}>
-            <View style={styles.modalOverlay} />
-          </TouchableWithoutFeedback>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add New Product</Text>
-                <TouchableOpacity onPress={() => setShowAddProductModal(false)}>
-                  <X size={22} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.modalForm}>
-                <Text style={styles.modalLabel}>Category *</Text>
-                <TouchableOpacity
-                  style={styles.modalPicker}
+                  style={styles.categoryPicker}
                   onPress={() => {
-                    setShowModalCategoryDropdown(v => !v);
+                    setShowMainCategoryDropdown(v => !v);
+                    setShowSuggestions(false);
+                    setShowUnitDropdown(false);
+                    Keyboard.dismiss();
                   }}
                   activeOpacity={0.7}
                 >
                   <Text style={[
-                    styles.modalPickerText,
-                    !modalCategoryId && styles.placeholderText
+                    styles.categoryPickerText,
+                    !categoryId && styles.placeholderText
                   ]}>
-                    {modalSelectedCategoryName || 'Select category'}
+                    {selectedCategoryName || 'Select category'}
                   </Text>
                   <ChevronDown size={18} color="#64748B" />
                 </TouchableOpacity>
 
-                {showModalCategoryDropdown && (
-                <View style={styles.dropdown}>
-                  <FlatList
-                    data={categories}
-                    keyExtractor={(i) => String(i.id)}
-                    renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.quickAddButton}
+                  onPress={() => {
+                    setShowAddCategoryModal(true);
+                    setShowMainCategoryDropdown(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Category Dropdown */}
+              {showMainCategoryDropdown && (
+                <View style={[styles.dropdown, { maxHeight: 250 }]}>
+                  <ScrollView nestedScrollEnabled={true} keyboardShouldPersistTaps="always">
+                    {categories.map((item) => (
                       <TouchableOpacity
+                        key={item.id}
                         style={styles.dropdownItem}
-                        onPress={() => {
-                          setModalCategoryId(String(item.id));
-                          setShowModalCategoryDropdown(false);
-                        }}
+                        onPress={() => handleCategoryPick(item.id)}
                       >
                         <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-                        <Text style={styles.dropdownItemText}>
-                          {item.category_name}
-                        </Text>
+                        <Text style={styles.dropdownItemText}>{item.category_name}</Text>
                       </TouchableOpacity>
-                    )}
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* Product Name */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Product / Item Name *</Text>
+              <View style={styles.itemRow}>
+                <View style={styles.inputWrapper}>
+                  <Search size={18} color="#94A3B8" style={styles.searchIcon} />
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.inputWithIcon}
+                    placeholder="Search or enter new product name"
+                    placeholderTextColor="#94A3B8"
+                    value={productName}
+                    onChangeText={(t) => {
+                      setProductName(t);
+                      setSelectedProduct(null);
+                      setIsNewProduct(false);
+                      if (t.length > 0 && suggestions.length > 0) setShowSuggestions(true);
+                      else setShowSuggestions(false);
+                    }}
+                    onFocus={() => {
+                      if (productName.length > 0 && suggestions.length > 0) setShowSuggestions(true);
+                    }}
                   />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.quickAddButton}
+                  onPress={() => setShowAddProductModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Suggestions */}
+              {showSuggestions && suggestions.length > 0 && (
+                <View style={styles.suggestionBox}>
+                  <View>
+                    {suggestions.map((item) => {
+                      const cat = categories.find(c => String(c.id) === String(item.category_id));
+
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.suggestionRow}
+                          onPress={() => onSelectSuggestion(item)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.suggestionContent}>
+                            <Text style={styles.suggName}>{item.product_name}</Text>
+                            <Text style={styles.suggMeta}>
+                              {cat ? cat.category_name : 'Uncategorized'}
+                            </Text>
+                          </View>
+
+                          <Text style={styles.suggPrice}>
+                            ₹{Number(item.unit_price).toFixed(2)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
 
+              {/* Add New Product Option */}
+              {!selectedProduct && !isNewProduct && productName.length > 0 && categoryId && suggestions.length === 0 && (
+                <TouchableOpacity
+                  style={styles.addNewRow}
+                  onPress={() => {
+                    setIsNewProduct(true);
+                    setSaveLater(true);
+                    setShowSuggestions(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={16} color="#2563EB" />
+                  <Text style={styles.addNewText}>Add "{productName}" as new product</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
-                <Text style={styles.modalLabel}>Product Name *</Text>
+            {/* Configuration Section */}
+            {categoryId && (
+              <View style={styles.configSection}>
+                <View style={styles.configHeader}>
+                  <Text style={styles.configTitle}>
+                    {productName || 'New Item'}
+                  </Text>
+                  {selectedProduct && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Existing</Text>
+                    </View>
+                  )}
+                  {isNewProduct && (
+                    <View style={[styles.badge, styles.badgeNew]}>
+                      <Text style={styles.badgeText}>New</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Price & Quantity Row */}
+                <View style={styles.configRow}>
+                  <View style={styles.configField}>
+                    <Text style={styles.fieldLabel}>Unit Price</Text>
+                    <View style={styles.priceInputWrapper}>
+                      <Text style={styles.currencySymbol}>₹</Text>
+                      <TextInput
+                        style={styles.priceInput}
+                        keyboardType="decimal-pad"
+                        value={unitPrice.toString()}
+                        onChangeText={(t) => setUnitPrice(Number(t) || 0)}
+                        placeholder="0.00"
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.configField}>
+                    <Text style={styles.fieldLabel}>Quantity</Text>
+                    <View style={styles.counterWrapper}>
+                      <TouchableOpacity
+                        style={styles.counterBtn}
+                        onPress={() => changeQty(-1)}
+                        activeOpacity={0.7}
+                      >
+                        <Minus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.counterInput}
+                        keyboardType="number-pad"
+                        value={quantity.toString()}
+                        onChangeText={(t) => setQuantity(Math.max(1, Number(t) || 1))}
+                      />
+                      <TouchableOpacity
+                        style={styles.counterBtn}
+                        onPress={() => changeQty(1)}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Dimensions Row */}
+                <View style={styles.dimensionsRow}>
+                  <View style={styles.dimensionField}>
+                    <Text style={styles.fieldLabel}>Length</Text>
+                    <View style={styles.counterWrapper}>
+                      <TouchableOpacity
+                        style={styles.smallCounterBtn}
+                        onPress={() => changeLength(-0.1)}
+                        activeOpacity={0.7}
+                      >
+                        <Minus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.counterInput}
+                        keyboardType="decimal-pad"
+                        value={lengthVal.toString()}
+                        onChangeText={(t) => setLengthVal(Number(t) || 0)}
+                      />
+                      <TouchableOpacity
+                        style={styles.smallCounterBtn}
+                        onPress={() => changeLength(0.1)}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <Text style={styles.multiplySymbol}>×</Text>
+
+                  <View style={styles.dimensionField}>
+                    <Text style={styles.fieldLabel}>Width</Text>
+                    <View style={styles.counterWrapper}>
+                      <TouchableOpacity
+                        style={styles.smallCounterBtn}
+                        onPress={() => changeWidth(-0.1)}
+                        activeOpacity={0.7}
+                      >
+                        <Minus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.counterInput}
+                        keyboardType="decimal-pad"
+                        value={widthVal.toString()}
+                        onChangeText={(t) => setWidthVal(Number(t) || 0)}
+                      />
+                      <TouchableOpacity
+                        style={styles.smallCounterBtn}
+                        onPress={() => changeWidth(0.1)}
+                        activeOpacity={0.7}
+                      >
+                        <Plus size={16} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.unitField}>
+                    <Text style={styles.fieldLabel}>Unit</Text>
+                    <TouchableOpacity
+                      style={styles.unitPicker}
+                      onPress={() => setShowUnitDropdown(v => !v)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.unitText}>{unit}</Text>
+                      <ChevronDown size={14} color="#64748B" />
+                    </TouchableOpacity>
+
+                    {showUnitDropdown && (
+                      <View style={styles.unitDropdown}>
+                        <TouchableOpacity
+                          style={styles.unitOption}
+                          onPress={() => {
+                            setUnit('feet');
+                            setShowUnitDropdown(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.unitOptionText}>feet</Text>
+                        </TouchableOpacity>
+                        <View style={styles.separator} />
+                        <TouchableOpacity
+                          style={styles.unitOption}
+                          onPress={() => {
+                            setUnit('inches');
+                            setShowUnitDropdown(false);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.unitOptionText}>inches</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Total Display */}
+                <View style={styles.totalContainer}>
+                  <View style={styles.totalRow}>
+                    <Text style={styles.totalLabel}>Total Amount</Text>
+                    <Text style={styles.totalAmount}>₹{total.toFixed(2)}</Text>
+                  </View>
+                  <Text style={styles.calculation}>
+                    {quantity} × {lengthVal} × {widthVal} × ₹{unitPrice.toFixed(2)}
+                  </Text>
+                </View>
+
+                {/* Save Later Toggle */}
+                {isNewProduct && (
+                  <TouchableOpacity
+                    style={styles.saveLaterRow}
+                    onPress={() => setSaveLater(v => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.toggle, saveLater && styles.toggleOn]}>
+                      <View style={[styles.knob, saveLater && styles.knobOn]} />
+                    </View>
+                    <View style={styles.saveLaterContent}>
+                      <Text style={styles.saveLaterText}>Save as product</Text>
+                      <Text style={styles.saveLaterDesc}>
+                        Add this to your product catalog for future use
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Save Button (Fixed at bottom) */}
+          {categoryId && (
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSave}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.saveText}>
+                  {isEditMode ? 'Update Item' : 'Add to Quotation'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Add Category Modal */}
+          <Modal
+            visible={showAddCategoryModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowAddCategoryModal(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowAddCategoryModal(false)}>
+              <View style={styles.modalOverlay} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Add Category</Text>
+                  <TouchableOpacity onPress={() => setShowAddCategoryModal(false)}>
+                    <X size={22} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
                 <TextInput
-                  placeholder="Enter product name"
+                  placeholder="Category name"
                   placeholderTextColor="#94A3B8"
-                  value={modalProductName}
-                  onChangeText={setModalProductName}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
                   style={styles.modalInput}
+                  autoFocus
                 />
 
-                <Text style={styles.modalLabel}>Unit Price *</Text>
-                <View style={styles.priceInputWrapper}>
-                  <Text style={styles.currencySymbol}>₹</Text>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    onPress={() => setShowAddCategoryModal(false)}
+                    style={[styles.modalBtn, styles.cancelBtn]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleCreateCategoryInline(newCategoryName)}
+                    style={[styles.modalBtn, styles.createBtn]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.createText}>Create</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Add Product Modal */}
+          <Modal
+            visible={showAddProductModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowAddProductModal(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowAddProductModal(false)}>
+              <View style={styles.modalOverlay} />
+            </TouchableWithoutFeedback>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Add New Product</Text>
+                  <TouchableOpacity onPress={() => setShowAddProductModal(false)}>
+                    <X size={22} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalForm}>
+                  <Text style={styles.modalLabel}>Category *</Text>
+                  <TouchableOpacity
+                    style={styles.modalPicker}
+                    onPress={() => {
+                      setShowModalCategoryDropdown(v => !v);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.modalPickerText,
+                      !modalCategoryId && styles.placeholderText
+                    ]}>
+                      {modalSelectedCategoryName || 'Select category'}
+                    </Text>
+                    <ChevronDown size={18} color="#64748B" />
+                  </TouchableOpacity>
+
+                  {showModalCategoryDropdown && (
+                    <View style={styles.dropdown}>
+                      <FlatList
+                        data={categories}
+                        keyExtractor={(i) => String(i.id)}
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setModalCategoryId(String(item.id));
+                              setShowModalCategoryDropdown(false);
+                            }}
+                          >
+                            <View style={[styles.colorDot, { backgroundColor: item.color }]} />
+                            <Text style={styles.dropdownItemText}>
+                              {item.category_name}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    </View>
+                  )}
+
+
+                  <Text style={styles.modalLabel}>Product Name *</Text>
                   <TextInput
-                    placeholder="0.00"
+                    placeholder="Enter product name"
                     placeholderTextColor="#94A3B8"
-                    keyboardType="decimal-pad"
-                    value={modalPrice}
-                    onChangeText={setModalPrice}
-                    style={styles.priceInput}
+                    value={modalProductName}
+                    onChangeText={setModalProductName}
+                    style={styles.modalInput}
+                  />
+
+                  <Text style={styles.modalLabel}>Unit Price *</Text>
+                  <View style={styles.priceInputWrapper}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <TextInput
+                      placeholder="0.00"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="decimal-pad"
+                      value={modalPrice}
+                      onChangeText={setModalPrice}
+                      style={styles.priceInput}
+                    />
+                  </View>
+
+                  <Text style={styles.modalLabel}>Description (Optional)</Text>
+                  <TextInput
+                    placeholder="Add product description"
+                    placeholderTextColor="#94A3B8"
+                    value={modalDescription}
+                    onChangeText={setModalDescription}
+                    style={[styles.modalInput, styles.textArea]}
+                    multiline
+                    numberOfLines={3}
                   />
                 </View>
 
-                <Text style={styles.modalLabel}>Description (Optional)</Text>
-                <TextInput
-                  placeholder="Add product description"
-                  placeholderTextColor="#94A3B8"
-                  value={modalDescription}
-                  onChangeText={setModalDescription}
-                  style={[styles.modalInput, styles.textArea]}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  onPress={() => setShowAddProductModal(false)}
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleSaveProductFromModal}
-                  style={[styles.modalBtn, styles.createBtn]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.createText}>Add Product</Text>
-                </TouchableOpacity>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    onPress={() => setShowAddProductModal(false)}
+                    style={[styles.modalBtn, styles.cancelBtn]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleSaveProductFromModal}
+                    style={[styles.modalBtn, styles.createBtn]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.createText}>Add Product</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
+          </Modal>
 
-      </View>
-    </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
@@ -857,7 +872,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -888,7 +903,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.5,
   },
-  
+
   // Sections
   section: {
     paddingHorizontal: 20,
@@ -902,7 +917,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  
+
   // Category & Item Rows
   categoryRow: {
     flexDirection: 'row',
@@ -953,7 +968,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  
+
   // Input
   inputWrapper: {
     flex: 1,
@@ -980,7 +995,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '500',
   },
-  
+
   // Dropdown
   dropdown: {
     marginTop: 8,
@@ -1028,7 +1043,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2563EB',
   },
-  
+
   // Suggestions
   suggestionBox: {
     marginTop: 12,
@@ -1074,7 +1089,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F1F5F9',
   },
-  
+
   // Add New Product
   addNewRow: {
     flexDirection: 'row',
@@ -1094,7 +1109,7 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     flex: 1,
   },
-  
+
   // Configuration Section
   configSection: {
     marginHorizontal: 20,
@@ -1143,7 +1158,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  
+
   // Config Rows
   configRow: {
     flexDirection: 'row',
@@ -1161,7 +1176,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  
+
   // Price Input
   priceInputWrapper: {
     flexDirection: 'row',
@@ -1185,7 +1200,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  
+
   // Counter
   counterWrapper: {
     flexDirection: 'row',
@@ -1204,6 +1219,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
+  smallCounterBtn: {
+    width: 26,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   counterInput: {
     flex: 1,
     textAlign: 'center',
@@ -1211,7 +1233,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  
+
   // Dimensions
   dimensionsRow: {
     flexDirection: 'row',
@@ -1229,7 +1251,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   unitField: {
-    width: 90,
+    width: 80,
     position: 'relative',
   },
   unitPicker: {
@@ -1275,7 +1297,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F172A',
   },
-  
+
   // Total
   totalContainer: {
     backgroundColor: '#ECFDF5',
@@ -1310,7 +1332,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
   },
-  
+
   // Save Later Toggle
   saveLaterRow: {
     flexDirection: 'row',
@@ -1363,7 +1385,7 @@ const styles = StyleSheet.create({
   knobOn: {
     alignSelf: 'flex-end',
   },
-  
+
   // Footer
   footer: {
     position: 'absolute',
@@ -1399,7 +1421,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  
+
   // Modal
   modalOverlay: {
     flex: 1,

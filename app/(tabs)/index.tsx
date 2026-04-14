@@ -7,15 +7,30 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import {
   Users, Package, Grid3x3 as Grid3X3, TrendingUp,
-  IndianRupee, FileText
+  IndianRupee, FileText,
+  Tags,
+  UserPlus,
+  ClipboardList
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
-
+import { router } from 'expo-router';
 
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 64) / 2;
+
+type RoutePath =
+  | '/(tabs)/quotations'
+  | '/(tabs)/leads'
+  | '/specifications';
+
+type QuickAction = {
+  title: string;
+  color: string;
+  screen: RoutePath;
+  icon: any;
+};
 
 
 export default function HomeScreen() {
@@ -29,28 +44,21 @@ export default function HomeScreen() {
     dispatch(fetchDashboardSummary());
   }, [dispatch]);
 
-
-// useEffect(() => {
-//   const now = new Date().toISOString();
-// }, []);
-
-
-
-
-
-
-
+  // useEffect(() => {
+  //   const now = new Date().toISOString();
+  // }, []);
 
   const stats = [
-    { title: 'Total Contacts', value: total_leads.toString(),  color: '#3B82F6', bgColor: '#EFF6FF' },
-    { title: 'Products', value: total_products.toString(),  color: '#10B981', bgColor: '#ECFDF5' },
-    { title: 'Categories', value: total_categories.toString(),  color: '#F59E0B', bgColor: '#FFFBEB' },
-    { title: 'Conversions', value: total_conversions.toString(),  color: '#8B5CF6', bgColor: '#F5F3FF' },
+    { title: 'Total Contacts', value: total_leads.toString(), color: '#3B82F6', bgColor: '#EFF6FF', icon: Users },
+    { title: 'Products', value: total_products.toString(), color: '#10B981', bgColor: '#ECFDF5', icon: Package },
+    { title: 'Categories', value: total_categories.toString(), color: '#F59E0B', bgColor: '#FFFBEB', icon: Tags },
+    { title: 'Conversions', value: total_conversions.toString(), color: '#8B5CF6', bgColor: '#F5F3FF', icon: TrendingUp },
   ];
 
-  const quickActions = [
-    { title: 'Create Quote',  color: '#3B82F6', screen: 'quotations' },
-    { title: 'Add Contact',  color: '#10B981', screen: 'leads' },
+  const quickActions: QuickAction[] = [
+    { title: 'Create Quote', color: '#3B82F6', screen: '/(tabs)/quotations', icon: FileText },
+    { title: 'Add Contact', color: '#10B981', screen: '/(tabs)/leads', icon: UserPlus },
+    { title: 'Add Specification', color: '#8B5CF6', screen: '/specifications', icon: ClipboardList },
   ];
 
   return (
@@ -73,7 +81,7 @@ export default function HomeScreen() {
         {stats.map((stat, index) => (
           <TouchableOpacity key={index} style={[styles.statCard, { width: cardWidth }]}>
             <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
-              {/* <stat.icon color={stat.color} size={20} /> */}
+              <stat.icon color={stat.color} size={20} />
             </View>
             <Text style={styles.statValue}>{stat.value}</Text>
             <Text style={styles.statTitle}>{stat.title}</Text>
@@ -89,10 +97,10 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={index}
               style={styles.quickActionCard}
-              onPress={() => navigation.navigate({ name: action.screen })}
+              onPress={() => router.push(action.screen)}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
-                {/* <action.icon color={action.color} size={20} /> */}
+                <action.icon color={action.color} size={20} />
               </View>
               <Text style={styles.quickActionText}>{action.title}</Text>
             </TouchableOpacity>
@@ -222,7 +230,7 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   quickActionCard: {
     backgroundColor: '#FFFFFF',
@@ -254,6 +262,7 @@ const styles = StyleSheet.create({
   },
   recentLeads: {
     gap: 12,
+    marginBottom: 15
   },
   leadCard: {
     backgroundColor: '#FFFFFF',

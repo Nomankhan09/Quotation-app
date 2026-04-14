@@ -9,6 +9,7 @@ import categoriesSlice from './slices/categoriesSlice';
 import quotationsSlice from './slices/quotationsSlice';
 import quotationBuilderSlice from './slices/quotationBuilderSlice';
 import dashboardSlice from './slices/dashboardSlice';
+import specificationsSlice from './slices/specificationsSlice';
 
 // Persist config
 const persistConfig = {
@@ -26,6 +27,7 @@ const rootReducer = combineReducers({
   quotations: quotationsSlice,
   quotationBuilder: quotationBuilderSlice,
   dashboard: dashboardSlice,
+  specifications: specificationsSlice,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -20,7 +20,7 @@ import { Plus, X, Grid3x3 as Grid3X3 } from 'lucide-react-native';
 export default function CategoriesScreen() {
   const { categories, search } = useSelector((state: RootState) => state.categories);
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCategory, setNewCategory] = useState({
     category_name: '',
@@ -31,8 +31,8 @@ export default function CategoriesScreen() {
 
   // Simple local search
   const filteredCategories = categories.filter(category =>
-    category.category_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchQuery.toLowerCase())
+    category.category_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    category.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSearchChange = (text: string) => {
@@ -40,7 +40,7 @@ export default function CategoriesScreen() {
     dispatch(setCategorySearch(text));
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.category_name || !newCategory.description) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -57,23 +57,32 @@ export default function CategoriesScreen() {
     ];
 
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    try {
+      const res = await dispatch(addCategory({ ...newCategory, color: randomColor })).unwrap();
 
-    dispatch(addCategory({ ...newCategory, color: randomColor }));
+      if (res.status === 400) {
+        Alert.alert('Error', res.message);
+        return;
+      }
 
-    setNewCategory({
-      category_name: '',
-      description: '',
-      color: '#3B82F6',
-    });
+      setNewCategory({
+        category_name: '',
+        description: '',
+        color: '#3B82F6',
+      });
 
-    setShowAddModal(false);
-    Alert.alert('Success', 'Category added successfully!');
+      setShowAddModal(false);
+      Alert.alert('Success', 'Category added successfully!');
+    } catch (err: any) {
+      // ❌ error comes here
+      Alert.alert('Error', err || 'Something went wrong');
+    }
   };
 
   const renderCategoryItem = ({ item }: { item: Category }) => (
     <TouchableOpacity style={styles.categoryCard}>
       <View style={[styles.categoryIcon, { backgroundColor: item.color + '20' }]}>
-        {/* <Grid3X3 size={20} color={item.color} /> */}
+        <Grid3X3 size={20} color={item.color} />
       </View>
       <View style={styles.categoryInfo}>
         <Text style={styles.categoryName}>{item.category_name}</Text>
@@ -93,7 +102,7 @@ export default function CategoriesScreen() {
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
         >
-          {/* <Plus size={20} color="#FFFFFF" /> */}
+          <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -114,6 +123,11 @@ export default function CategoriesScreen() {
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No categories found</Text>
+          </View>
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -132,12 +146,12 @@ export default function CategoriesScreen() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add New Category</Text>
             <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              {/* <X size={24} color="#64748B" /> */}
+              <X size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
 
           {/* Scrollable form content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -360,5 +374,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
   },
 });

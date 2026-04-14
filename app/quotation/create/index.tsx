@@ -21,29 +21,30 @@ import {
   IndianRupee,
   FileText,
   CreditCard,
-  Calendar,
   Check,
   X,
   Search,
   User,
   Package,
   Trash2,
-  Edit2,
   ArrowLeft,
   ShoppingBag,
   Tag,
+  SlidersHorizontal,
 } from 'lucide-react-native';
 import { generateQuotationHTML } from '@/services/pdfService';
-import { setDiscount, resetForNewQuotation } from '@/store/slices/quotationBuilderSlice';
+import { setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications } from '@/store/slices/quotationBuilderSlice';
 import { updateQuotation } from '@/services/quotationService';
 import { getQuotations } from '@/store/slices/quotationsSlice';
+import { getRoman } from '@/utils/roman_number';
+import type { AppDispatch } from '@/store';
 
 export default function CreateQuotationIndex() {
-  
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>()
 
   const leads = useSelector((s: any) => (s && s.leads ? s.leads.leads || [] : []));
   const qb = useSelector((state: RootState) => state.quotationBuilder);
+  const specificationBuilder = useSelector((state: RootState) => state.specifications);
   const token = useSelector((state: RootState) => state.auth.token);
   const user = useSelector((state: RootState) => state.auth.user);
 
@@ -52,27 +53,46 @@ export default function CreateQuotationIndex() {
   const reduxDiscount = qb.discount || { type: 'percentage', value: 0 };
   const allTerms = qb.terms || [];
   const selectedTerms = qb.selectedTerms || [];
+  const allSpecifications = qb.allSpecifications || []; // full list
+  const selectedSpecifications = qb.selectedSpecifications || []; // selected ids
   const allPaymentTerms = qb.paymentTerms || [];
   const selectedPaymentTerms = qb.selectedPaymentTerms || [];
-  
+
   const isEditMode = qb.isEditMode || false;
   const editingQuotationId = qb.editingQuotationId || null;
 
   const [showClientModal, setShowClientModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSpecificationModal, setShowSpecificationModal] = useState(false);
   const [discountType, setDiscountType] = useState(reduxDiscount.type || 'percentage');
   const [discountValue, setDiscountValue] = useState(String(reduxDiscount.value || '0'));
   const [search, setSearch] = useState('');
 
+  // useEffect(() => {
+  // }, [isEditMode, editingQuotationId, selectedLead, selectedProducts, selectedSpecifications]);
+
   useEffect(() => {
-  }, [isEditMode, editingQuotationId, selectedLead, selectedProducts]);
+    if (isEditMode && !editingQuotationId) return;
+
+    dispatch(loadAllSpecifications());
+  }, [isEditMode, editingQuotationId]);
+
+  useEffect(() => {
+    if (isEditMode && qb.prefillData?.specifications) {
+      const mapped = qb.prefillData.specifications.map((s: any) =>
+        String(s.id)
+      );
+
+      dispatch(setSpecifications(mapped));
+    }
+  }, [qb.prefillData, isEditMode]);
 
   useEffect(() => {
     setDiscountType(reduxDiscount.type || 'percentage');
     setDiscountValue(String(reduxDiscount.value || '0'));
   }, [reduxDiscount]);
-  
+
   useEffect(() => {
     if (!isEditMode) return;
     if (!selectedLead) return;
@@ -157,6 +177,17 @@ export default function CreateQuotationIndex() {
     dispatch({ type: 'quotationBuilder/setPaymentTerms', payload: updated });
   };
 
+  const toggleSpecification = (id: string) => {
+    const stringId = String(id);
+    const exists = selectedSpecifications.includes(stringId);
+
+    const updated = exists
+      ? selectedSpecifications.filter(s => s !== stringId)
+      : [...selectedSpecifications, stringId];
+
+    dispatch(setSpecifications(updated)); // ✅ FIX
+  };
+
   const saveDiscountToStore = () => {
     dispatch(setDiscount({ type: discountType, value: parseFloat(discountValue) || 0 }));
     Alert.alert('Success', 'Discount updated successfully');
@@ -180,6 +211,7 @@ export default function CreateQuotationIndex() {
       },
       discountAmount: getDiscountAmount(),
       totalAmount: total,
+      specifications: selectedSpecifications,
       terms: allTerms
         .filter((t: { id: any; }) => selectedTerms.includes(t.id))
         .map((t: { text: any; }) => t.text),
@@ -223,6 +255,7 @@ export default function CreateQuotationIndex() {
           },
           discountAmount: getDiscountAmount(),
           totalAmount: total,
+          specifications: selectedSpecifications,
           terms: allTerms
             .filter((t: { id: any; }) => selectedTerms.includes(t.id))
             .map((t: { text: any; }) => t.text),
@@ -237,10 +270,10 @@ export default function CreateQuotationIndex() {
         }
 
         const response = await updateQuotation(Number(currentQuotationId), updateData, token);
-        
+
         dispatch(getQuotations({ page: 1, loadMore: false }) as any);
         dispatch(resetForNewQuotation());
-        
+
         Alert.alert('Success', 'Quotation updated successfully!', [
           {
             text: 'OK',
@@ -265,14 +298,14 @@ export default function CreateQuotationIndex() {
       {/* Enhanced Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <TouchableOpacity 
-            style={styles.backButton} 
+          <TouchableOpacity
+            style={styles.backButton}
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
             <ArrowLeft size={22} color="#0F172A" />
           </TouchableOpacity>
-          
+
           <View style={styles.headerTitleSection}>
             <Text style={styles.headerTitle}>
               {isEditMode ? 'Edit Quotation' : 'New Quotation'}
@@ -281,11 +314,11 @@ export default function CreateQuotationIndex() {
               <Text style={styles.headerSubtitle}>#{editingQuotationId}</Text>
             )}
           </View>
-          
+
           <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={styles.previewButton} 
-              onPress={handlePreview} 
+            <TouchableOpacity
+              style={styles.previewButton}
+              onPress={handlePreview}
               activeOpacity={0.7}
             >
               <Text style={styles.previewButtonText}>Preview</Text>
@@ -294,7 +327,7 @@ export default function CreateQuotationIndex() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -303,16 +336,16 @@ export default function CreateQuotationIndex() {
         {/* Client Selection Card */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Client Information</Text>
-          <TouchableOpacity 
-            style={styles.clientCard} 
-            onPress={openSelectLead} 
+          <TouchableOpacity
+            style={styles.clientCard}
+            onPress={openSelectLead}
             activeOpacity={0.7}
           >
             <View style={styles.clientCardContent}>
               <View style={styles.clientIcon}>
                 <User size={24} color="#3B82F6" />
               </View>
-              
+
               {selectedClient ? (
                 <View style={styles.clientInfo}>
                   <Text style={styles.clientName}>{selectedClient.full_name}</Text>
@@ -325,7 +358,7 @@ export default function CreateQuotationIndex() {
                 </View>
               )}
             </View>
-            
+
             <ChevronRight size={20} color="#94A3B8" />
           </TouchableOpacity>
         </View>
@@ -334,8 +367,8 @@ export default function CreateQuotationIndex() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>Items</Text>
-            <TouchableOpacity 
-              style={styles.addButton} 
+            <TouchableOpacity
+              style={styles.addButton}
               onPress={openAddItems}
               activeOpacity={0.7}
             >
@@ -355,14 +388,14 @@ export default function CreateQuotationIndex() {
           ) : (
             <View style={styles.itemsCard}>
               {selectedProducts.map((item: any, index: number) => (
-                <View 
-                  key={item.productId} 
+                <View
+                  key={item.productId}
                   style={[
                     styles.itemCard,
                     index === selectedProducts.length - 1 && styles.itemCardLast
                   ]}
                 >
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.itemContent}
                     onPress={() => handleEditItem(item, index)}
                     activeOpacity={0.7}
@@ -371,7 +404,7 @@ export default function CreateQuotationIndex() {
                       <Text style={styles.itemName}>{item.product_name}</Text>
                       <Text style={styles.itemPrice}>₹{Number(item.totalPrice).toFixed(2)}</Text>
                     </View>
-                    
+
                     <View style={styles.itemDetails}>
                       <View style={styles.itemBadge}>
                         <Package size={12} color="#64748B" />
@@ -387,7 +420,7 @@ export default function CreateQuotationIndex() {
                       </View>
                     </View>
                   </TouchableOpacity>
-                  
+
                   <View style={styles.itemActions}>
                     {/* <TouchableOpacity
                       style={[styles.itemActionButton, styles.editButton]}
@@ -406,7 +439,7 @@ export default function CreateQuotationIndex() {
                   </View>
                 </View>
               ))}
-              
+
               <View style={styles.itemsSummary}>
                 <Text style={styles.itemsSummaryText}>
                   {selectedProducts.length} item{selectedProducts.length !== 1 ? 's' : ''} • Subtotal: ₹{subtotal.toFixed(2)}
@@ -466,9 +499,9 @@ export default function CreateQuotationIndex() {
                 placeholderTextColor="#CBD5E1"
               />
 
-              <TouchableOpacity 
-                style={styles.discountSaveButton} 
-                onPress={saveDiscountToStore} 
+              <TouchableOpacity
+                style={styles.discountSaveButton}
+                onPress={saveDiscountToStore}
                 activeOpacity={0.7}
               >
                 <Check size={18} color="#fff" />
@@ -488,9 +521,9 @@ export default function CreateQuotationIndex() {
 
         {/* Terms & Payment Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Terms & Payment</Text>
-          
-          <TouchableOpacity 
+          <Text style={styles.sectionLabel}>Terms, Payment & Specification</Text>
+
+          <TouchableOpacity
             style={styles.termsCard}
             onPress={() => setShowPaymentModal(true)}
             activeOpacity={0.7}
@@ -504,7 +537,7 @@ export default function CreateQuotationIndex() {
                 <Text style={styles.termsBadgeText}>{selectedPaymentTerms.length}</Text>
               </View>
             </View>
-            
+
             {selectedPaymentTerms.length > 0 && (
               <View style={styles.termsPreview}>
                 {selectedPaymentTerms.slice(0, 2).map((id: any) => {
@@ -524,7 +557,7 @@ export default function CreateQuotationIndex() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.termsCard}
             onPress={() => setShowTermsModal(true)}
             activeOpacity={0.7}
@@ -538,7 +571,7 @@ export default function CreateQuotationIndex() {
                 <Text style={styles.termsBadgeText}>{selectedTerms.length}</Text>
               </View>
             </View>
-            
+
             {selectedTerms.length > 0 && (
               <View style={styles.termsPreview}>
                 {selectedTerms.slice(0, 2).map((id: any) => {
@@ -552,6 +585,41 @@ export default function CreateQuotationIndex() {
                 {selectedTerms.length > 2 && (
                   <Text style={styles.termsPreviewMore}>
                     +{selectedTerms.length - 2} more
+                  </Text>
+                )}
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Specification Card */}
+          <TouchableOpacity
+            style={styles.termsCard}
+            onPress={() => setShowSpecificationModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.termsCardHeader}>
+              <View style={[styles.termsIcon, { backgroundColor: '#e2d8f9' }]}>
+                <SlidersHorizontal size={20} color="#8B5CF6" />
+              </View>
+              <Text style={styles.termsCardTitle}>Specifications</Text>
+              <View style={styles.termsBadge}>
+                <Text style={styles.termsBadgeText}>{selectedSpecifications.length}</Text>
+              </View>
+            </View>
+
+            {selectedSpecifications.length > 0 && (
+              <View style={styles.termsPreview}>
+                {selectedSpecifications.slice(0, 2).map((id: any) => {
+                  const s = allSpecifications.find((x) => String(x?.id) === String(id));
+                  return s ? (
+                    <Text key={id} style={styles.termsPreviewText} numberOfLines={1}>
+                      • {s.item}
+                    </Text>
+                  ) : null;
+                })}
+                {selectedSpecifications.length > 2 && (
+                  <Text style={styles.termsPreviewMore}>
+                    +{selectedSpecifications.length - 2} more
                   </Text>
                 )}
               </View>
@@ -581,8 +649,8 @@ export default function CreateQuotationIndex() {
             <Text style={styles.summaryValueTotal}>₹{total.toFixed(2)}</Text>
           </View>
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.saveButton}
           onPress={handleSave}
           activeOpacity={0.8}
@@ -594,16 +662,16 @@ export default function CreateQuotationIndex() {
       </View>
 
       {/* Client Selection Modal */}
-      <Modal 
-        visible={showClientModal} 
-        animationType="slide" 
+      <Modal
+        visible={showClientModal}
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowClientModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Client</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowClientModal(false)}
               style={styles.modalCloseButton}
               activeOpacity={0.7}
@@ -615,10 +683,10 @@ export default function CreateQuotationIndex() {
           <View style={styles.modalSearchContainer}>
             <View style={styles.modalSearchWrapper}>
               <Search size={20} color="#94A3B8" />
-              <TextInput 
-                value={search} 
-                onChangeText={setSearch} 
-                placeholder="Search clients..." 
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search clients..."
                 style={styles.modalSearchInput}
                 placeholderTextColor="#CBD5E1"
               />
@@ -626,14 +694,14 @@ export default function CreateQuotationIndex() {
           </View>
 
           <FlatList
-            data={(leads || []).filter((l: { full_name: any; company_name: any; }) => 
-              (l.full_name || '').toLowerCase().includes(search.toLowerCase()) || 
+            data={(leads || []).filter((l: { full_name: any; company_name: any; }) =>
+              (l.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
               (l.company_name || '').toLowerCase().includes(search.toLowerCase())
             )}
             keyExtractor={(i) => String(i.id)}
             renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.modalItem} 
+              <TouchableOpacity
+                style={styles.modalItem}
                 onPress={() => handleSelectLead(item.id)}
                 activeOpacity={0.7}
               >
@@ -660,16 +728,16 @@ export default function CreateQuotationIndex() {
       </Modal>
 
       {/* Terms Modal */}
-      <Modal 
-        visible={showTermsModal} 
-        animationType="slide" 
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowTermsModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Terms & Conditions</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowTermsModal(false)}
               style={styles.modalCloseButton}
               activeOpacity={0.7}
@@ -682,8 +750,8 @@ export default function CreateQuotationIndex() {
             data={allTerms}
             keyExtractor={(t) => String(t.id)}
             renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.modalCheckItem} 
+              <TouchableOpacity
+                style={styles.modalCheckItem}
                 onPress={() => toggleTerm(item.id)}
                 activeOpacity={0.7}
               >
@@ -703,16 +771,16 @@ export default function CreateQuotationIndex() {
       </Modal>
 
       {/* Payment Terms Modal */}
-      <Modal 
-        visible={showPaymentModal} 
-        animationType="slide" 
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Payment Terms</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowPaymentModal(false)}
               style={styles.modalCloseButton}
               activeOpacity={0.7}
@@ -725,8 +793,8 @@ export default function CreateQuotationIndex() {
             data={allPaymentTerms}
             keyExtractor={(p) => String(p.id)}
             renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.modalCheckItem} 
+              <TouchableOpacity
+                style={styles.modalCheckItem}
                 onPress={() => togglePaymentTerm(item.id)}
                 activeOpacity={0.7}
               >
@@ -746,6 +814,66 @@ export default function CreateQuotationIndex() {
           />
         </View>
       </Modal>
+
+      {/* Specification Modal */}
+      <Modal
+        visible={showSpecificationModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSpecificationModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Specifications</Text>
+            <TouchableOpacity
+              onPress={() => setShowSpecificationModal(false)}
+              style={styles.modalCloseButton}
+              activeOpacity={0.7}
+            >
+              <X size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={allSpecifications}
+            keyExtractor={(p) => String(p.id)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.modalCheckItem}
+                onPress={() => toggleSpecification(item.id)}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    selectedSpecifications.includes(String(item.id)) && styles.checkboxActive,
+                  ]}
+                >
+                  {selectedSpecifications.includes(String(item.id)) && (
+                    <Check size={16} color="#fff" />
+                  )}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  {/* Heading */}
+                  <Text style={styles.modalCheckItemText}>
+                    {item.item}
+                  </Text>
+
+                  {/* Descriptions as roman list */}
+                  {item.description?.map((d, index) => (
+                    <Text key={index} style={styles.modalCheckItemDescription}>
+                      {`${getRoman(index + 1)}. ${d.description}`}
+                    </Text>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.modalList}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -755,7 +883,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  
+
   // Header
   header: {
     backgroundColor: '#FFFFFF',
@@ -813,7 +941,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
   },
-  
+
   // Scroll
   scrollView: {
     flex: 1,
@@ -821,7 +949,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
   },
-  
+
   // Section
   section: {
     paddingHorizontal: 20,
@@ -841,7 +969,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  
+
   // Client Card
   clientCard: {
     backgroundColor: '#FFFFFF',
@@ -895,7 +1023,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#CBD5E1',
   },
-  
+
   // Add Button
   addButton: {
     flexDirection: 'row',
@@ -916,7 +1044,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  
+
   // Empty Items
   emptyItemsCard: {
     backgroundColor: '#FFFFFF',
@@ -938,7 +1066,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
   },
-  
+
   // Items Card
   itemsCard: {
     backgroundColor: '#FFFFFF',
@@ -1034,7 +1162,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
   },
-  
+
   // Discount Card
   discountCard: {
     backgroundColor: '#FFFFFF',
@@ -1124,7 +1252,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#EF4444',
   },
-  
+
   // Terms Card
   termsCard: {
     backgroundColor: '#FFFFFF',
@@ -1189,7 +1317,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
-  
+
   // Bottom Bar
   bottomBar: {
     backgroundColor: '#FFFFFF',
@@ -1259,7 +1387,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
-  
+
   // Modal
   modalContainer: {
     flex: 1,
@@ -1369,7 +1497,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   // Modal Checkboxes
   modalCheckItem: {
     backgroundColor: '#FFFFFF',
@@ -1405,6 +1533,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
+    color: '#0F172A',
+    lineHeight: 22,
+  },
+  modalCheckItemDescription: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '400',
     color: '#0F172A',
     lineHeight: 22,
   },

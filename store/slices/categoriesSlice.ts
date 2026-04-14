@@ -95,7 +95,19 @@ const categoriesSlice = createSlice({
         state.initialized = false;
       })
       .addCase(addCategory.fulfilled, (state, action) => {
-        state.categories.unshift(action.payload);
+        const payload = action.payload;
+
+        if (!payload || !payload.id || !payload.category_name) {
+          return;
+        }
+
+        const exists = state.categories.some(
+          (c) => String(c.id) === String(payload.id)
+        );
+
+        if (!exists) {
+          state.categories.unshift(payload);
+        }
       });
   },
 });

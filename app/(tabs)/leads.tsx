@@ -14,15 +14,15 @@ import {
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
-import { 
+import {
   setSearch,
 } from '@/store/slices/leadsSlice';
-import { 
-  Plus, 
-  Search, 
-  Mail, 
-  Phone, 
-  Building, 
+import {
+  Plus,
+  Search,
+  Mail,
+  Phone,
+  Building,
   User,
   X,
 } from 'lucide-react-native';
@@ -33,7 +33,7 @@ export default function LeadsScreen() {
   const { leads, search } = useSelector(
     (state: RootState) => state.leads
   );
-  
+
   const [searchQuery, setSearchQuery] = useState(search);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newLead, setNewLead] = useState({
@@ -46,9 +46,9 @@ export default function LeadsScreen() {
 
   // Simple local search
   const filteredLeads = leads.filter(lead =>
-    lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchQuery.toLowerCase())
+    lead.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lead.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSearchChange = (text: string) => {
@@ -57,12 +57,12 @@ export default function LeadsScreen() {
   };
 
   const handleAddLead = () => {
-    if (!newLead.full_name || !newLead.company_name) {
+    if (!newLead.full_name || !newLead.phone) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if(!newLead.email){
+    if (!newLead.email) {
       newLead.email = "NA"
     }
 
@@ -86,7 +86,7 @@ export default function LeadsScreen() {
           <Text style={styles.leadCompany}>{item.company_name}</Text>
         </View>
       </View>
-      
+
       <View style={styles.leadDetails}>
         <View style={styles.detailRow}>
           <Mail size={16} color="#64748B" />
@@ -136,6 +136,11 @@ export default function LeadsScreen() {
         renderItem={renderLeadItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No contacts found</Text>
+          </View>
+        }
         showsVerticalScrollIndicator={false}
       />
 
@@ -159,7 +164,7 @@ export default function LeadsScreen() {
           </View>
 
           {/* Scrollable form content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -178,10 +183,22 @@ export default function LeadsScreen() {
             </View>
 
             <View style={styles.inputContainer}>
+              <Phone size={20} color="#64748B" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Phone Number *"
+                value={newLead.phone}
+                onChangeText={(text) => setNewLead({ ...newLead, phone: text })}
+                keyboardType="phone-pad"
+                placeholderTextColor="#94A3B8"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
               <Building size={20} color="#64748B" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Company *"
+                placeholder="Company"
                 value={newLead.company_name}
                 onChangeText={(text) => setNewLead({ ...newLead, company_name: text })}
                 placeholderTextColor="#94A3B8"
@@ -197,18 +214,6 @@ export default function LeadsScreen() {
                 onChangeText={(text) => setNewLead({ ...newLead, email: text })}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Phone size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number"
-                value={newLead.phone}
-                onChangeText={(text) => setNewLead({ ...newLead, phone: text })}
-                keyboardType="phone-pad"
                 placeholderTextColor="#94A3B8"
               />
             </View>
@@ -441,5 +446,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
   },
 });

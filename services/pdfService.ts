@@ -9,6 +9,7 @@ interface Customer {
   phone?: string;
   address?: string;
   city?: string;
+  location?: string;
 }
 
 interface Product {
@@ -163,17 +164,21 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
   const paymentTermsHTML = quotationData.paymentTerms.map((term, i) => {
     let amountHTML = '';
 
-    const percentage = extractPercentage(term.description);
+    const percentage = Number(term.value);
 
-    if (percentage !== null) {
+    if (!isNaN(percentage)) {
       const calculatedAmount = (quotationData.totalAmount * percentage) / 100;
       amountHTML = `₹${formatIndianNumber(calculatedAmount)}`;
     }
 
     return `
     <div style="display: flex; justify-content: space-between; font-size: 16px; border-bottom: 1px solid #dbccbb;">
-      <span style="width: 80%; padding: 6px 15px; border-right: 1px solid #dbccbb;">${term.description} ${term.value}</span>
-      <span style="width: 20%; font-weight: 500; padding: 6px 15px; text-align: left;">${amountHTML}</span>
+      <span style="width: 80%; padding: 6px 15px; border-right: 1px solid #dbccbb;">
+        ${term.description} ${term.value}%
+      </span>
+      <span style="width: 20%; font-weight: 500; padding: 6px 15px; text-align: left;">
+        ${amountHTML}
+      </span>
     </div>
   `;
   }).join('');
@@ -189,7 +194,7 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
   `;
 
   const termsHTML = quotationData.terms.map((term, index) => `
-    <div style="font-size: 16px; margin-bottom: 8px; display: flex;">
+    <div style="font-size: 14px; margin-bottom: 8px; display: flex;">
       <div style="margin-right: 10px; min-width: 15px;">${index + 1}.</div>
       <div>${term}</div>
     </div>
@@ -209,7 +214,7 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
       </div>
 
       <!-- Description -->
-      <div style="margin-left: 20px; margin-top: 4px;">
+      <div style="margin-left: 20px; margin-top: 5px; font-size: 14px;">
         ${(spec.description || [])
       .map(
         (d: any, i: number) => `
@@ -219,7 +224,7 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
                 </div>
                 <div style="
                   margin-bottom: 2px;
-                  line-height: 1;
+                  line-height: 1.5;
                   letter-spacing: 0.3px;
                 ">
                   ${d.description.toUpperCase()}
@@ -248,59 +253,83 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Business Work Quotation</title>
-    <style>
-      * {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-          color-adjust: exact !important;
-      }
-       
-  </style>
+   <style>
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 15mm 12mm; /* 👈 adds space on every page */
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+  }
+</style>
 </head>
 <body style="margin: 0; padding: 0;  font-family: Helvetica, Arial, sans-serif;">
-    <div style="
-  width: 8.5in;
-  min-height: 11in;
-  background: white;
-  margin: 0 auto;
-  padding: 10px 40px;
+ <div style="
+  width: 100%;
+  margin: 0;
+  padding: 10px 10px;
   box-sizing: border-box;
 ">
         <!-- Header Section -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0;">
-            <div style="min-width: 160px; max-width: 180px; display: flex; align-items: center;">
-                <div style="width: 180px; height: 80px; display: flex; align-items: center; color: #826546; font-size: 12px;">
-                    <img src="${logoUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="Company Logo" />
-                </div>
-            </div>
-            <div style="flex: 1; text-align: left;">
-                <div style="color: #dfb163; font-size: 26px; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.2px;">Interior Work Quotation</div>
-                <div style="border-top: 1px solid #dbccbb;">
-                <div style="color: #826546; font-size: 16.5px; line-height: 1.8; border-top: 1px solid #dbccbb; border-bottom: 1px solid #dbccbb; padding: 2px 0;">
-                    Company Name | ${userCompanyName}, ${userCompanyAddress}-${userCompanyZip}
-                </div>
-                <div style="color: #826546; font-size: 16.5px; line-height: 1.8; display: flex; justify-content: space-between; padding: 2px 0;">
-                    <span>Company Phone | ${userCompanyPhone}</span>
-                    <span>${userCompanyWebsite}</span>
-                </div>
-        </div>
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 0px;">
+
+  <!-- LOGO -->
+  <div style="flex-shrink: 0;">
+    <img 
+      src="${logoUrl}" 
+      style="width: 160px; height: auto; object-fit: contain;" 
+      alt="Company Logo" 
+    />
+  </div>
+
+  <!-- RIGHT CONTENT -->
+  <div style="flex: 1;">
+    <div style="color: #dfb163; font-size: 26px; font-weight: bold; margin-bottom: 3px;">
+      Interior Work Quotation
     </div>
+
+    <div style="border-top: 1px solid #dbccbb;">
+      <div style="color: #826546; font-size: 16.5px; line-height: 1.6; border-bottom: 1px solid #dbccbb; padding: 2px 0;">
+        Company Name | ${userCompanyName}, ${userCompanyAddress}-${userCompanyZip}
+      </div>
+
+      <div style="color: #826546; font-size: 16.5px; display: flex; justify-content: space-between; padding: 2px 0;">
+        <span>Company Phone | ${userCompanyPhone}</span>
+        <span>${userCompanyWebsite}</span>
+      </div>
+    </div>
+  </div>
+ 
 
         </div>
         
-        <div style="border-top: 1.5px solid #111; margin: 10px 0 14px;margin-top:5px"></div>
+        <div style="border-top: 1.5px solid #111; margin: 0px 0 14px;"></div>
         
         <!-- Customer Information -->
         <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
             <div style="flex: 1;">
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 6px;">To,</div>
                 <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.full_name}</div>
+                <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.location}</div>
                 ${quotationData.lead.phone ? `
                 <div style="margin-bottom: 3px; font-size: 19px;">
                     <span>${quotationData.lead.phone}</span>
                 </div>
                 ` : ''}
-                ${quotationData.lead.email ? `
+                ${quotationData.lead.email && quotationData.lead.email !== 'NA' ? `
                 <div style="font-size: 19px;">
                     <span>${quotationData.lead.email}</span>
                 </div>

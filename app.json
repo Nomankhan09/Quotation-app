@@ -27,7 +27,11 @@
       "typedRoutes": true
     },
     "android": {
-      "package": "com.decolivings.app"
+      "package": "com.decolivings.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
+      }
     }
   }
 }

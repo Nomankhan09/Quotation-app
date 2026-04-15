@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Modal,
   Alert,
   ScrollView,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet
 } from 'react-native';
@@ -22,27 +21,23 @@ import {
   Search,
   Mail,
   Phone,
-  Building,
-  User,
   X,
+  MapPin,
 } from 'lucide-react-native';
 import { Lead, addLead } from '@/store/slices/leadsSlice';
+import { Controller, useForm } from 'react-hook-form';
+import { StageBadge } from '@/utils/stageBadge';
+import Avatar from '@/utils/avatar';
+import { STAGES } from '@/constants/constant';
 
 export default function LeadsScreen() {
   const dispatch = useDispatch<any>();
   const { leads, search } = useSelector(
     (state: RootState) => state.leads
   );
-
+  const [showStagePicker, setShowStagePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState(search);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newLead, setNewLead] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    notes: '',
-  });
 
   // Simple local search
   const filteredLeads = leads.filter(lead =>
@@ -56,50 +51,66 @@ export default function LeadsScreen() {
     dispatch(setSearch(text));
   };
 
-  const handleAddLead = () => {
-    if (!newLead.full_name || !newLead.phone) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      full_name: "",
+      company_name: "",
+      job_title: "",
+      email: "",
+      phone: "",
+      stage: "Lead",
+      location: "",
+    },
+  });
+  const stage = watch("stage");
+
+  const onSubmit = (data: any) => {
+    if (!data.email) {
+      data.email = "NA"
     }
 
-    if (!newLead.email) {
-      newLead.email = "NA"
-    }
-
-    dispatch(addLead(newLead));
-    setNewLead({
-      full_name: '',
-      email: '',
-      phone: '',
-      company_name: '',
-      notes: '',
-    });
-    setShowAddModal(false);
+    dispatch(addLead(data));
+    handleClose();
     Alert.alert('Success', 'Contact added successfully!');
   };
 
-  const renderLeadItem = ({ item }: { item: Lead }) => (
-    <TouchableOpacity style={styles.leadCard}>
-      <View style={styles.leadHeader}>
-        <View style={styles.leadInfo}>
-          <Text style={styles.leadName}>{item.full_name}</Text>
-          <Text style={styles.leadCompany}>{item.company_name}</Text>
-        </View>
-      </View>
 
-      <View style={styles.leadDetails}>
-        <View style={styles.detailRow}>
-          <Mail size={16} color="#64748B" />
-          <Text style={styles.detailText}>{item.email}</Text>
+  const handleClose = () => {
+    setShowAddModal(false);
+    reset();
+  };
+
+  useEffect(() => {
+    if (showAddModal) {
+      reset();
+    }
+  }, [showAddModal]);
+
+  const renderLeadItem = ({ item }) => (
+    <TouchableOpacity style={styles.leadCard}>
+      <View style={styles.row}>
+        {/* Avatar */}
+        <Avatar item={item} />
+
+        {/* Name + Phone */}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.leadName}>{item.full_name}</Text>
+
+          {item.phone && (
+            <Text style={styles.phoneText}>{item.phone}</Text>
+          )}
         </View>
-        {item.phone && (
-          <View style={styles.detailRow}>
-            <Phone size={16} color="#64748B" />
-            <Text style={styles.detailText}>{item.phone}</Text>
-          </View>
-        )}
-        {item.notes && (
-          <Text style={styles.notesText}>{item.notes}</Text>
+
+        {/* Stage Badge */}
+        {item.stage && (
+          <StageBadge stage={item.stage} />
         )}
       </View>
     </TouchableOpacity>
@@ -148,109 +159,238 @@ export default function LeadsScreen() {
       <Modal
         visible={showAddModal}
         animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowAddModal(false)}
+        transparent={true}
+        onRequestClose={handleClose}
       >
-        <KeyboardAvoidingView
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Contact</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
-              <X size={24} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Scrollable form content */}
-          <ScrollView
-            style={styles.formScrollView}
-            contentContainerStyle={styles.formContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.inputContainer}>
-              <User size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name *"
-                value={newLead.full_name}
-                onChangeText={(text) => setNewLead({ ...newLead, full_name: text })}
-                placeholderTextColor="#94A3B8"
-                returnKeyType="next"
-              />
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheet}>
+            {/* Drag handle */}
+            <View style={styles.dragHandleWrapper}>
+              <View style={styles.dragHandle} />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Phone size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number *"
-                value={newLead.phone}
-                onChangeText={(text) => setNewLead({ ...newLead, phone: text })}
-                keyboardType="phone-pad"
-                placeholderTextColor="#94A3B8"
-              />
+            {/* Header */}
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Add Contact</Text>
+
+              <TouchableOpacity onPress={handleClose}>
+                <X size={20} color="#111827" />
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Building size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Company"
-                value={newLead.company_name}
-                onChangeText={(text) => setNewLead({ ...newLead, company_name: text })}
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Mail size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email Address"
-                value={newLead.email}
-                onChangeText={(text) => setNewLead({ ...newLead, email: text })}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={[styles.input, styles.notesInput]}
-                placeholder="Notes (optional)"
-                value={newLead.notes}
-                onChangeText={(text) => setNewLead({ ...newLead, notes: text })}
-                multiline
-                numberOfLines={3}
-                placeholderTextColor="#94A3B8"
-                returnKeyType="done"
-              />
-            </View>
-
-            {/* Spacer for modal footer */}
-            <View style={styles.modalFooterSpacer} />
-          </ScrollView>
-
-          {/* Fixed footer buttons */}
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowAddModal(false)}
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.formContent}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleAddLead}
-            >
-              <Text style={styles.saveButtonText}>Add Contact</Text>
-            </TouchableOpacity>
+              {/* FULL NAME */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Full name *</Text>
+                <Controller
+                  control={control}
+                  name="full_name"
+                  rules={{
+                    required: "Full name is required",
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={styles.input}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Full Name"
+                      placeholderTextColor="#9e9e9d"
+                    />
+                  )}
+                />
+                {errors.full_name && (
+                  <Text style={styles.errorText}>{errors.full_name.message}</Text>
+                )}
+              </View>
+
+              {/* PHONE */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Phone *</Text>
+                <Controller
+                  control={control}
+                  name="phone"
+                  rules={{
+                    required: "Phone is required",
+                    pattern: {
+                      value: /^[0-9+\-\s]{7,15}$/,
+                      message: "Enter valid phone number",
+                    },
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={styles.input}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="+91 98XXXXXXXX"
+                      placeholderTextColor="#9e9e9d"
+                      keyboardType="phone-pad"
+                    />
+                  )}
+                />
+                {errors.phone && (
+                  <Text style={styles.errorText}>{errors.phone.message}</Text>
+                )}
+              </View>
+
+              {/* Location */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Location *</Text>
+                <Controller
+                  control={control}
+                  name="location"
+                  rules={{ required: 'Location is required' }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={[styles.input, styles.multilineInput]}
+                      placeholder="Enter location"
+                      value={value}
+                      onChangeText={onChange}
+                      multiline
+                      textAlignVertical="top"
+                      scrollEnabled
+                      placeholderTextColor="#CBD5E1"
+                    />
+                  )}
+                />
+
+                {/* </View> */}
+                {errors.location && (
+                  <Text style={{ color: 'red' }}>
+                    {errors.location.message}
+                  </Text>
+                )}
+              </View>
+
+
+              {/* STAGE */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Stage *</Text>
+
+                <TouchableOpacity
+                  style={styles.stageSelector}
+                  onPress={() => setShowStagePicker(!showStagePicker)}
+                >
+                  <Text style={styles.stageSelectorText}>{stage}</Text>
+                  <Text>{showStagePicker ? "▲" : "▼"}</Text>
+                </TouchableOpacity>
+
+                {showStagePicker && (
+                  <View style={styles.stageDropdown}>
+                    {STAGES.map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.stageOption,
+                          stage === item && styles.stageOptionActive,
+                        ]}
+                        onPress={() => {
+                          setValue("stage", item);
+                          setShowStagePicker(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.stageOptionText,
+                            stage === item && styles.stageOptionTextActive,
+                          ]}
+                        >
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* EMAIL */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Email</Text>
+                <Controller
+                  control={control}
+                  name="email"
+                  rules={{
+                    pattern: {
+                      value: /\S+@\S+\.\S+/,
+                      message: "Invalid email",
+                    },
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <View>
+                      <TextInput
+                        style={styles.input}
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder="raj@acme.com"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                      {errors.email && (
+                        <Text style={styles.errorText}>
+                          {errors.email.message}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                />
+              </View>
+
+              {/* COMPANY */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Company</Text>
+                <Controller
+                  control={control}
+                  name="company_name"
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={styles.input}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Acme Corp"
+                      placeholderTextColor="#9e9e9d"
+                    />
+                  )}
+                />
+              </View>
+
+              {/* JOB TITLE */}
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Job title</Text>
+                <Controller
+                  control={control}
+                  name="job_title"
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={styles.input}
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Head of Engineering"
+                      placeholderTextColor="#9e9e9d"
+                    />
+                  )}
+                />
+              </View>
+
+              {/* BUTTONS */}
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSubmit(onSubmit)}
+              >
+                <Text style={styles.saveButtonText}>Save contact</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleClose}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -259,7 +399,7 @@ export default function LeadsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAF9F5',
   },
   header: {
     flexDirection: 'row',
@@ -287,11 +427,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 24,
+    marginHorizontal: 20,
     marginVertical: 16,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 4,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -307,7 +447,7 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   listContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 100,
   },
   leadCard: {
@@ -404,6 +544,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#cdcecf',
+    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   notesInput: {
     textAlignVertical: 'top',
@@ -456,5 +601,145 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#64748B',
+  },
+
+
+  // Drag handle
+  dragHandleWrapper: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+  },
+
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#111827',
+  },
+
+  // Scroll
+  scrollView: {
+    flex: 1,
+  },
+
+  // Row (side by side)
+  row: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+
+  // Field
+  fieldWrapper: {
+    marginBottom: 4,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '##565553',
+    marginBottom: 6,
+  },
+
+
+  // Stage custom selector
+  stageSelector: {
+    height: 44,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  stageSelectorText: {
+    fontSize: 15,
+    color: '#111827',
+  },
+  chevron: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  stageDropdown: {
+    marginTop: 4,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    // Shadow for Android
+    elevation: 4,
+  },
+  stageOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  stageOptionActive: {
+    backgroundColor: '#F9FAFB',
+  },
+  stageOptionText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  stageOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+
+  bottomSheet: {
+    height: '85%',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    overflow: 'hidden',
+  },
+
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  errorText: {
+    color: '#DC2626',
+  },
+  multilineInput: {
+    minHeight: 50,
+    maxHeight: 120,
+    paddingTop: 10,
+  },
+  phoneText: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 2,
   },
 });

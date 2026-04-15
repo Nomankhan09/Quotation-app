@@ -89,6 +89,14 @@ export default function CreateQuotationIndex() {
   }, [qb.prefillData, isEditMode]);
 
   useEffect(() => {
+    if (!isEditMode && allSpecifications.length > 0) {
+      const allIds = allSpecifications.map(s => String(s.id));
+
+      dispatch(setSpecifications(allIds)); // ✅ select ALL by default
+    }
+  }, [isEditMode, allSpecifications]);
+
+  useEffect(() => {
     setDiscountType(reduxDiscount.type || 'percentage');
     setDiscountValue(String(reduxDiscount.value || '0'));
   }, [reduxDiscount]);
@@ -389,7 +397,7 @@ export default function CreateQuotationIndex() {
             <View style={styles.itemsCard}>
               {selectedProducts.map((item: any, index: number) => (
                 <View
-                  key={item.productId}
+                  key={`${item.productId} - ${index}`}
                   style={[
                     styles.itemCard,
                     index === selectedProducts.length - 1 && styles.itemCardLast
@@ -861,7 +869,7 @@ export default function CreateQuotationIndex() {
                   </Text>
 
                   {/* Descriptions as roman list */}
-                  {item.description?.map((d, index) => (
+                  {item.description?.map((d: { description: string }, index: number) => (
                     <Text key={index} style={styles.modalCheckItemDescription}>
                       {`${getRoman(index + 1)}. ${d.description}`}
                     </Text>

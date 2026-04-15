@@ -159,24 +159,32 @@ export default function CreateQuotationCompactScreen() {
     }
   }, [token, dispatch]);
 
+  const {
+    termsInitialized,
+    paymentTermsInitialized,
+  } = useSelector((state: RootState) => state.quotationBuilder);
+
   useEffect(() => {
-    if (!hasPrefilled.current && !editMode) {
-
-      if (terms.length > 0) {
-        dispatch(setTerms(terms.map(t => t.id)));
-      }
-
-      if (paymentTerms.length > 0) {
-        dispatch(setPaymentTerms(paymentTerms.map(t => t.id)));
-      }
-
-      if (allSpecifications.length > 0) {
-        dispatch(setSpecifications(allSpecifications.map(s => s.id)));
-      }
+    if (
+      !editMode &&
+      termsInitialized &&
+      paymentTermsInitialized &&
+      !hasPrefilled.current
+    ) {
+      dispatch(setTerms(selectedTerms));
+      dispatch(setPaymentTerms(selectedPaymentTerms));
+      dispatch(setSpecifications(selectedSpecifications));
 
       hasPrefilled.current = true;
     }
-  }, [terms, paymentTerms, allSpecifications, editMode]);
+  }, [
+    termsInitialized,
+    paymentTermsInitialized,
+    selectedTerms,
+    selectedPaymentTerms,
+    selectedSpecifications,
+    editMode,
+  ]);
 
   // Helper functions
   const getSelectedClient = () => leads.find(lead => lead.id === selectedLead);
@@ -325,9 +333,12 @@ export default function CreateQuotationCompactScreen() {
     dispatch(setPaymentTerms(updatedTerms));
   };
   const toggleSpecification = (id: string) => {
-    const updatedSpecifications = selectedSpecifications.includes(id)
-      ? selectedSpecifications.filter(sid => sid !== id)
-      : [...selectedSpecifications, id];
+    const stringId = String(id); // ✅ FIX
+
+    const updatedSpecifications = selectedSpecifications.includes(stringId)
+      ? selectedSpecifications.filter(sid => sid !== stringId)
+      : [...selectedSpecifications, stringId];
+
     dispatch(setSpecifications(updatedSpecifications));
   };
 
@@ -520,12 +531,12 @@ export default function CreateQuotationCompactScreen() {
             </TouchableOpacity>
           ) : (
             <View style={styles.productsContainer}>
-              {selectedProducts.map((item) => {
+              {selectedProducts.map((item, index) => {
                 const product = products.find(p => p.id === item.productId);
                 if (!product) return null;
 
                 return (
-                  <View key={item.productId} style={styles.productCard}>
+                  <View key={`${item.productId} - ${index}`} style={styles.productCard}>
                     <View style={styles.productCardHeader}>
                       <Text style={styles.productName}>{product.product_name}</Text>
                       <TouchableOpacity
@@ -786,13 +797,26 @@ export default function CreateQuotationCompactScreen() {
             {allSpecifications.slice(0, 6).map((term) => (
               <TouchableOpacity
                 key={term.id}
-                style={[styles.paymentTermChip, selectedSpecifications.includes(term.id) && styles.paymentTermChipActive]}
-                onPress={() => handleTogglePaymentTerm(term.id)}
+                style={[
+                  styles.paymentTermChip,
+                  selectedSpecifications.includes(String(term.id)) &&
+                  styles.paymentTermChipActive
+                ]}
+                onPress={() => toggleSpecification(term.id)} // ✅ FIXED
                 activeOpacity={0.7}
               >
-                <View style={[styles.termCheckbox, selectedSpecifications.includes(term.id) && styles.termCheckboxActive]}>
-                  {selectedSpecifications.includes(term.id) && <Check size={12} color="#fff" />}
+                <View
+                  style={[
+                    styles.termCheckbox,
+                    selectedSpecifications.includes(String(term.id)) &&
+                    styles.termCheckboxActive
+                  ]}
+                >
+                  {selectedSpecifications.includes(String(term.id)) && (
+                    <Check size={12} color="#fff" />
+                  )}
                 </View>
+
                 <Text style={styles.paymentTermChipText}>{term.item}</Text>
               </TouchableOpacity>
             ))}
@@ -1195,15 +1219,17 @@ export default function CreateQuotationCompactScreen() {
                   <TouchableOpacity
                     style={[
                       styles.specItem,
-                      selectedSpecifications.includes(item.id) && styles.specItemActive
+                      selectedSpecifications.includes(String(item.id)) && styles.specItemActive
                     ]}
                     onPress={() => toggleSpecification(item.id)}
                   >
-
                     <View
-                      style={[styles.termCheckbox, selectedSpecifications.includes(item.id) && styles.termCheckboxActive]}
+                      style={[
+                        styles.termCheckbox,
+                        selectedSpecifications.includes(String(item.id)) && styles.termCheckboxActive
+                      ]}
                     >
-                      {selectedSpecifications.includes(item.id) && (
+                      {selectedSpecifications.includes(String(item.id)) && (
                         <Check size={14} color="#fff" />
                       )}
                     </View>
@@ -1219,7 +1245,6 @@ export default function CreateQuotationCompactScreen() {
                         </Text>
                       ))}
                     </View>
-
                   </TouchableOpacity>
                 )}
               />
@@ -1634,6 +1659,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#475569',
+    maxWidth: '90%',
   },
 
   // Details

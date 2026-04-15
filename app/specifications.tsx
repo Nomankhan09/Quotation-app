@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { RootState, AppDispatch } from '@/store';
 import { Plus, X, Grid3x3 as Grid3X3 } from 'lucide-react-native';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { addSpecification, setSpecificationSearch, Specification } from '@/store/slices/specificationsSlice';
+import { loadAllSpecifications } from '@/store/slices/quotationBuilderSlice';
 
 export default function SpecificationsScreen() {
   const { specifications, search } = useSelector((state: RootState) => state.specifications);
@@ -38,6 +39,10 @@ export default function SpecificationsScreen() {
       description: [{ description: '' }],
     },
   });
+
+  useEffect(() => {
+    dispatch(loadAllSpecifications());
+  }, []);
 
   const { fields, append, remove } = useFieldArray({
     control,

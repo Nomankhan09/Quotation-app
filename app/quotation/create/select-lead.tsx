@@ -30,8 +30,10 @@ import {
   Users,
   Briefcase,
   UserPlus,
+  MapPin,
 } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
+import { STAGES } from '@/constants/constant';
 
 export default function SelectLeadScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
@@ -42,23 +44,27 @@ export default function SelectLeadScreen() {
   const [isCreateLoading, setIsCreateLoading] = useState(false);
   const params = useLocalSearchParams();
   const editMode = params.editMode === 'true';
+  const [showStagePicker, setShowStagePicker] = useState(false);
   const urlPrefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
-
   const prefillData = persistedPrefillData || urlPrefillData;
 
   const hasPrefilled = useRef(false);
   const hasSetEditMode = useRef(false);
   const hasRestoredSelectedLead = useRef(false);
 
-  const { control, handleSubmit, formState: { errors }, reset } = useForm({
+  const { control, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm({
     defaultValues: {
       full_name: '',
       email: '',
       phone: '',
       company_name: '',
       notes: '',
+      location: '',
+      stage: "Lead",
+      job_title: '',
     }
   });
+  const stage = watch("stage");
 
   useEffect(() => {
     if (editMode && !hasSetEditMode.current) {
@@ -384,7 +390,78 @@ export default function SelectLeadScreen() {
                   <Text style={{ color: 'red' }}>{errors.phone.message}</Text>
                 )}
               </View>
+
+              {/* Location */}
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Location *</Text>
+                <View style={styles.inputWrapper}>
+                  <MapPin size={20} color="#94A3B8" />
+                  <Controller
+                    control={control}
+                    name="location"
+                    rules={{ required: 'Location is required' }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={[styles.input, styles.multilineInput]}
+                        placeholder="Enter location"
+                        value={value}
+                        onChangeText={onChange}
+                        multiline
+                        textAlignVertical="top"
+                        scrollEnabled
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
+                  />
+
+                </View>
+                {errors.location && (
+                  <Text style={{ color: 'red' }}>
+                    {errors.location.message}
+                  </Text>
+                )}
+              </View>
+
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.label}>Stage *</Text>
+
+                <TouchableOpacity
+                  style={styles.stageSelector}
+                  onPress={() => setShowStagePicker(!showStagePicker)}
+                >
+                  <Text style={styles.stageSelectorText}>{stage}</Text>
+                  <Text>{showStagePicker ? "▲" : "▼"}</Text>
+                </TouchableOpacity>
+
+                {showStagePicker && (
+                  <View style={styles.stageDropdown}>
+                    {STAGES.map((item) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.stageOption,
+                          stage === item && styles.stageOptionActive,
+                        ]}
+                        onPress={() => {
+                          setValue("stage", item);
+                          setShowStagePicker(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.stageOptionText,
+                            stage === item && styles.stageOptionTextActive,
+                          ]}
+                        >
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
+
 
             <View style={styles.formSection}>
               <Text style={styles.formSectionLabel}>Optional Fields</Text>
@@ -436,6 +513,26 @@ export default function SelectLeadScreen() {
                         value={value}
                         onChangeText={onChange}
                         placeholderTextColor="#CBD5E1"
+                      />
+                    )}
+                  />
+                </View>
+              </View>
+
+              {/* JOB TITLE */}
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>Job title</Text>
+                <View style={styles.inputWrapper}>
+                  <Controller
+                    control={control}
+                    name="job_title"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder="Head of Engineering"
+                        placeholderTextColor="#9e9e9d"
                       />
                     )}
                   />
@@ -886,5 +983,71 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  multilineInput: {
+    minHeight: 50,
+    maxHeight: 120,
+    paddingTop: 10,
+  },
+  fieldWrapper: {
+    marginBottom: 4,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '##565553',
+    marginBottom: 6,
+  },
+  // Stage custom selector
+  stageSelector: {
+    height: 44,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+  },
+  stageSelectorText: {
+    fontSize: 15,
+    color: '#111827',
+  },
+  chevron: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  stageDropdown: {
+    marginTop: 4,
+    borderWidth: 0.5,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    // Shadow for Android
+    elevation: 4,
+  },
+  stageOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#F3F4F6',
+  },
+  stageOptionActive: {
+    backgroundColor: '#F9FAFB',
+  },
+  stageOptionText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  stageOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });

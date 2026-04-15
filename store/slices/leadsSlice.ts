@@ -65,6 +65,7 @@ export const addLead = createAsyncThunk(
     email: string;
     phone: string;
     notes?: string;
+    location: string;
   }, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;

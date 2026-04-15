@@ -17,6 +17,7 @@ export const createLead = async (leadData: {
     email: string;
     phone: string;
     notes?: string;
+    location: string;
   }, token: string) => {
     const response = await api.post("/leads", leadData, {
       headers: { Authorization: `Bearer ${token}` },

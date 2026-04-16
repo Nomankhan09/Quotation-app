@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-export const StageBadge = ({ stage }: { stage: string }) => {
+export const StageBadge = ({ stage, size }: { stage: string, size?: number }) => {
     const getColor = (stage: string) => {
         switch (stage) {
             case "Lead":
@@ -25,8 +25,8 @@ export const StageBadge = ({ stage }: { stage: string }) => {
                 alignItems: "center",
                 alignSelf: "flex-start",
                 backgroundColor: color.bg,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
                 borderRadius: 999, // fully pill shape
                 borderWidth: 1,
                 borderColor: "rgba(0,0,0,0.05)",
@@ -35,9 +35,9 @@ export const StageBadge = ({ stage }: { stage: string }) => {
             {/* small dot indicator */}
             <View
                 style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 3,
+                    width: size ?? 6,
+                    height: size ?? 6,
+                    borderRadius: (size ?? 6) / 2,
                     backgroundColor: color.text,
                     marginRight: 6,
                     opacity: 0.8,
@@ -47,7 +47,7 @@ export const StageBadge = ({ stage }: { stage: string }) => {
             <Text
                 style={{
                     color: color.text,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: "600",
                     letterSpacing: 0.2,
                 }}

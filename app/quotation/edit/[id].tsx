@@ -83,7 +83,8 @@ export default function QuotationDetailsScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
   const { user } = useSelector((state: RootState) => state.auth);
   const token = useSelector((state: RootState) => state.auth.token);
-
+  const qb = useSelector((state: RootState) => state.quotationBuilder);
+  const allSpecifications = qb.allSpecifications || [];
   const allTerms = useSelector((state: RootState) => state.quotationBuilder.terms);
   const allPaymentTerms = useSelector((state: RootState) => state.quotationBuilder.paymentTerms);
 
@@ -138,7 +139,7 @@ export default function QuotationDetailsScreen() {
       created_at: quotation.created_at,
     };
 
-    const html = generateQuotationHTML(quotationData);
+    const html = generateQuotationHTML(quotationData, allSpecifications);
 
     router.push({
       pathname: '/quotation/create/html-preview',
@@ -239,7 +240,7 @@ export default function QuotationDetailsScreen() {
         created_at: quotation.created_at,
       };
 
-      const htmlContent = generateQuotationHTML(pdfData);
+      const htmlContent = generateQuotationHTML(pdfData, allSpecifications);
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
       });
@@ -663,7 +664,7 @@ export default function QuotationDetailsScreen() {
                   key={spec.id}
                   style={[
                     styles.specItem,
-                    idx < quotation.specifications.length - 1 && styles.specItemBorder,
+                    idx < quotation?.specifications.length - 1 && styles.specItemBorder,
                   ]}
                 >
                   {/* Bullet + Title row */}

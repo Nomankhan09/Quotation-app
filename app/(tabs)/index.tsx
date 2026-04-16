@@ -71,7 +71,7 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{user?.first_name + ' ' + user?.last_name || 'User'}</Text>
           </View>
           <View style={styles.headerStats}>
-            {/* <IndianRupee color="#FFFFFF" size={24} /> */}
+            <IndianRupee color="#FFFFFF" size={24} />
           </View>
         </View>
       </LinearGradient>

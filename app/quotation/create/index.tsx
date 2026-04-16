@@ -229,7 +229,7 @@ export default function CreateQuotationIndex() {
       created_at: new Date().toISOString(),
     };
 
-    const html = generateQuotationHTML(quotationData);
+    const html = generateQuotationHTML(quotationData, allSpecifications);
 
 
     router.push({

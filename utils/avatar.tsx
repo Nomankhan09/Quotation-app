@@ -15,9 +15,11 @@ type Props = {
     item: {
         full_name: string;
     };
+    height?: number;
+    width?: number;
 };
 
-export default function Avatar({ item }: Props) {
+export default function Avatar({ item, height, width }: Props) {
     const getInitials = (name = "") =>
         name
             .split(" ")
@@ -55,7 +57,7 @@ export default function Avatar({ item }: Props) {
 
 
     return (
-        <View style={[styles.avatar, { backgroundColor: bgColor }]}>
+        <View style={[styles.avatar, { backgroundColor: bgColor, width: width ?? 42, height: height ?? 42, borderRadius: (width ?? 42) / 2 }]}>
             <Text style={[styles.avatarText, { color: textColor }]}>
                 {getInitials(item.full_name)}
             </Text>
@@ -65,8 +67,8 @@ export default function Avatar({ item }: Props) {
 
 const styles = {
     avatar: {
-        width: 42,
-        height: 42,
+        // width: 42,
+        // height: 42,
         borderRadius: 21,
         backgroundColor: "#DBEAFE",
         justifyContent: "center",

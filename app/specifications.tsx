@@ -17,16 +17,12 @@ import { RootState, AppDispatch } from '@/store';
 import { Plus, X, Grid3x3 as Grid3X3 } from 'lucide-react-native';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { addSpecification, setSpecificationSearch, Specification } from '@/store/slices/specificationsSlice';
-import { loadAllSpecifications } from '@/store/slices/quotationBuilderSlice';
+import { loadAllSpecifications } from '@/store/slices/specificationsSlice';
 
 export default function SpecificationsScreen() {
   const { specifications, search } = useSelector((state: RootState) => state.specifications);
   const dispatch = useDispatch<AppDispatch>();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newSpecification, setNewSpecification] = useState({
-    item: '',
-    description: [{ description: '' }],
-  });
   const [searchQuery, setSearchQuery] = useState(search);
 
   // Single view

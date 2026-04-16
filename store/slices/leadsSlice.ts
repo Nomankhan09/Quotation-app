@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { fetchLeads, createLead } from "@/services/leadsService";
+import { fetchLeads, createLead, updateLead } from "@/services/leadsService";
 import { RootState } from "..";
 
 export interface Lead {
@@ -79,6 +79,29 @@ export const addLead = createAsyncThunk(
   }
 );
 
+export const editLead = createAsyncThunk(
+  "leads/editLead",
+  async (leadData: {
+    id: string;
+    full_name: string;
+    company_name: string;
+    email: string;
+    phone: string;
+    notes?: string;
+    location: string;
+  }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const token = state.auth.token;
+      if (!token) return rejectWithValue("No authentication token found");
+      const newLead = await updateLead(leadData.id, leadData, token);
+      return newLead;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 const leadsSlice = createSlice({
   name: "leads",
   initialState,
@@ -105,9 +128,24 @@ const leadsSlice = createSlice({
         state.loading = false;
         state.initialized = false;
       })
+
+      // ADD
       .addCase(addLead.fulfilled, (state, action) => {
         state.leads.unshift(action.payload);
-      });
+      })
+
+      // ✅ EDIT (FIX)
+      .addCase(editLead.fulfilled, (state, action) => {
+        const updatedLead = action.payload;
+
+        const index = state.leads.findIndex(
+          (lead) => lead.id === updatedLead.id
+        );
+
+        if (index !== -1) {
+          state.leads[index] = updatedLead; // update in place
+        }
+      })
   },
 });
 

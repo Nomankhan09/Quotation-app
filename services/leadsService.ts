@@ -31,3 +31,17 @@ export const deleteLead = async (leadId: string, token: string) => {
   });
   return response.data;
 };
+
+export const updateLead = async (leadId: string, leadData: {
+    full_name: string;
+    company_name: string;
+    email: string;
+    phone: string;
+    notes?: string;
+    location: string;
+  }, token: string) => {
+    const response = await api.put(`/leads/${leadId}`, leadData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+};

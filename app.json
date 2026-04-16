@@ -27,11 +27,12 @@
       "typedRoutes": true
     },
     "android": {
-      "package": "com.decolivings.app",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#ffffff"
-      }
+      "package": "com.decolivings.app"
+    },
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     }
   }
 }

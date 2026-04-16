@@ -171,8 +171,8 @@ export default function CreateQuotationCompactScreen() {
       paymentTermsInitialized &&
       !hasPrefilled.current
     ) {
-      dispatch(setTerms(selectedTerms));
-      dispatch(setPaymentTerms(selectedPaymentTerms));
+      // dispatch(setTerms(selectedTerms));
+      // dispatch(setPaymentTerms(selectedPaymentTerms));
       dispatch(setSpecifications(selectedSpecifications));
 
       hasPrefilled.current = true;

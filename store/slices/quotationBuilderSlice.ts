@@ -235,7 +235,8 @@ export const loadAllSpecifications = createAsyncThunk(
       let page = 1;
 
       const data = await fetchSpecifications(page, "", 50, token);
-      return data.data || data;
+
+      return data?.data?.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }

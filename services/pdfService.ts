@@ -85,7 +85,7 @@ const calculateCategoryTotal = (products: Product[]) => {
   return products.reduce((total, product) => total + product.totalPrice, 0);
 };
 
-export const generateQuotationHTML = (quotationData: QuotationData): string => {
+export const generateQuotationHTML = (quotationData: QuotationData, specifications: any): string => {
   const { currentDay, month, currentYear } = getCurrentDateComponents();
   const formattedDate = `${currentDay} ${month} ${currentYear}`;
   const groupedProducts = groupProductsByCategory(quotationData.products);
@@ -204,40 +204,45 @@ export const generateQuotationHTML = (quotationData: QuotationData): string => {
   const getAlphabet = (index: number) =>
     String.fromCharCode(65 + index);
 
-  const specificationsHTML = quotationData?.specifications?.map((spec, index) => `
-    <div style="margin-bottom: 12px;">
-      
-      <!-- Title -->
-      <div style="font-size: 16px; display: flex; font-weight: 600;">
-        <div style="margin-right: 8px;">${getAlphabet(index)}.</div>
-        <div style="">${spec.item.toUpperCase()}</div>
-      </div>
+  const specificationsHTML = quotationData?.specifications
+    ?.map((spec, index) => {
+      const specObj =
+        typeof spec === "string" || typeof spec === "number"
+          ? specifications.find((s) => s.id == spec)
+          : spec;
 
-      <!-- Description -->
-      <div style="margin-left: 20px; margin-top: 5px; font-size: 14px;">
-        ${(spec.description || [])
-      .map(
-        (d: any, i: number) => `
-              <div style="display: flex; margin-bottom: 4px;">
-                <div style="margin-right: 8px; min-width: 18px;">
-                  ${getRoman(i + 1)}.
-                </div>
-                <div style="
-                  margin-bottom: 2px;
-                  line-height: 1.5;
-                  letter-spacing: 0.3px;
-                ">
-                  ${d.description.toUpperCase()}
-                </div>
-              </div>
-            `
-      )
-      .join('')}
-      </div>
+      // ✅ IMPORTANT: guard here
+      if (!specObj) return "";
 
-    </div>
-  `)
-    .join('');
+      return `
+      <div style="margin-bottom: 12px;">
+        
+        <div style="font-size: 15px; display: flex; font-weight: 600;">
+          <div style="margin-right: 8px;">${getAlphabet(index)}.</div>
+          <div>${specObj.item?.toUpperCase() || ""}</div>
+        </div>
+
+        <div style="margin-left: 20px; margin-top: 5px; font-size: 14px;">
+          ${(specObj.description || [])
+          .map(
+            (d: any, i: number) => `
+                <div style="display: flex; margin-bottom: 4px;">
+                  <div style="margin-right: 8px; min-width: 18px;">
+                    ${getRoman(i + 1)}.
+                  </div>
+                  <div>
+                    ${d.description?.toUpperCase() || ""}
+                  </div>
+                </div>
+              `
+          )
+          .join("")}
+        </div>
+
+      </div>
+    `;
+    })
+    .join("");
 
   const logoUrl = IMAGE_URL + quotationData.user.company_logo || '';
   const userCompanyName = quotationData.user.company_name || '';

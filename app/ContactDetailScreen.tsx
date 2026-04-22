@@ -10,7 +10,6 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +20,6 @@ import ContactFormModal from '@/components/ContactFormModal';
 import { STAGES } from '@/constants/constant';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import CallLogs from 'react-native-call-log';
 import { ICallLog } from '@/interface/callLogs';
 import TaskBottomSheet from '@/components/Task';
 import LeadFollowUps from './LeadFollowUps';
@@ -88,44 +86,44 @@ const ContactDetailScreen = () => {
     );
   };
 
-  const requestCallLogPermission = async () => {
-    if (Platform.OS !== 'android') return false;
+  // const requestCallLogPermission = async () => {
+  //   if (Platform.OS !== 'android') return false;
 
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
-      );
+  //   try {
+  //     const granted = await PermissionsAndroid.request(
+  //       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+  //     );
 
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  };
+  //     return granted === PermissionsAndroid.RESULTS.GRANTED;
+  //   } catch (err) {
+  //     console.warn(err);
+  //     return false;
+  //   }
+  // };
 
-  const fetchCallHistory = async () => {
-    setIsCallLogLoading(true);
-    try {
-      if (!contact.phone) return;
+  // const fetchCallHistory = async () => {
+  //   setIsCallLogLoading(true);
+  //   try {
+  //     if (!contact.phone) return;
 
-      // check permission and ask for it
-      const hasPermission = await requestCallLogPermission();
+  //     // check permission and ask for it
+  //     const hasPermission = await requestCallLogPermission();
 
-      if (!hasPermission) {
-        console.log('Call log permission denied');
-        return;
-      }
+  //     if (!hasPermission) {
+  //       console.log('Call log permission denied');
+  //       return;
+  //     }
 
-      const logs = await CallLogs.load(100, { phoneNumbers: contact?.phone });
-      setCallLogs(logs as ICallLog[]);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsCallLogLoading(false);
-    }
-  };
+  //     const logs = await CallLogs.load(100, { phoneNumbers: contact?.phone });
+  //     setCallLogs(logs as ICallLog[]);
+  //   } catch (e) {
+  //     console.error(e);
+  //   } finally {
+  //     setIsCallLogLoading(false);
+  //   }
+  // };
 
-  useEffect(() => { fetchCallHistory(); }, [contact.phone]);
+  // useEffect(() => { fetchCallHistory(); }, [contact.phone]);
 
   const filteredLogs =
     callFilter === 'ALL' ? callLogs : callLogs.filter(l => l.type === callFilter);

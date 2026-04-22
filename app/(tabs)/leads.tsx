@@ -7,7 +7,6 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  PermissionsAndroid
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
@@ -85,23 +84,23 @@ export default function LeadsScreen() {
   );
 
 
-  const fetchLogs = async () => {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
-      );
+  // const fetchLogs = async () => {
+  //   try {
+  //     const granted = await PermissionsAndroid.request(
+  //       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+  //     );
 
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        // console.log('Permission granted');
-      } else {
-        console.log('Permission denied');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  //     if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+  //       // console.log('Permission granted');
+  //     } else {
+  //       console.log('Permission denied');
+  //     }
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+  // };
 
-  useEffect(() => { fetchLogs(); }, []);
+  // useEffect(() => { fetchLogs(); }, []);
 
   return (
     <View style={styles.container}>

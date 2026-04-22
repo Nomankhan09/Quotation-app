@@ -27,7 +27,7 @@ export default function ConfigureProductsScreen() {
   //   dispatch(setCurrentStep('configure-products'));
   // }, [dispatch]);
 
-  const updateProduct = (productId: string, field: string, value: any) => {
+  const updateProduct = (productId: number, field: string, value: any) => {
     const updatedProducts = selectedProducts.map(p => {
       if (p.productId === productId) {
         const updated = { ...p, [field]: value };
@@ -51,7 +51,7 @@ export default function ConfigureProductsScreen() {
     dispatch(updateProductConfig(updatedProducts));
   };
 
-  const toggleUnit = (productId: string) => {
+  const toggleUnit = (productId: number) => {
     const product = selectedProducts.find(p => p.productId === productId);
     if (!product) return;
     
@@ -153,7 +153,7 @@ export default function ConfigureProductsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {selectedProducts.map((selectedProduct) => {
-          const product = products.find(p => p.id === selectedProduct.productId);
+          const product = products.find(p => Number(p.id) === selectedProduct.productId);
           if (!product) return null;
 
           return (

@@ -15,7 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
 import { router } from 'expo-router';
-
+import * as Notifications from 'expo-notifications';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 64) / 2;
@@ -40,9 +40,38 @@ export default function HomeScreen() {
   const { total_leads, total_products, total_categories, recent_leads, total_conversions } =
     useSelector((state: RootState) => state.dashboard);
 
+  // Notification permission
+  const requestPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission for notifications not granted!');
+    }
+  };
+
+
   useEffect(() => {
     dispatch(fetchDashboardSummary());
   }, [dispatch]);
+
+  useEffect(() => {
+    requestPermissions();
+    test();
+  }, [])
+
+useEffect(() => {
+  const init = async () => {
+    const crashlytics = (await import('@react-native-firebase/crashlytics')).default;
+
+    crashlytics().log('App started');
+  };
+
+  init();
+}, []);
+
+  const test = async () => {
+    const all = await Notifications.getAllScheduledNotificationsAsync();
+    console.log(all);
+  }
 
   // useEffect(() => {
   //   const now = new Date().toISOString();

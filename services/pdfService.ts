@@ -13,7 +13,7 @@ interface Customer {
 }
 
 interface Product {
-  productId: string;
+  productId: number;
   product_name: string;
   unitPrice: number;
   length: number;

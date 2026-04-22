@@ -33,24 +33,26 @@ import {
   SlidersHorizontal,
 } from 'lucide-react-native';
 import { generateQuotationHTML } from '@/services/pdfService';
-import { setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications } from '@/store/slices/quotationBuilderSlice';
+import { setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications, setStage } from '@/store/slices/quotationBuilderSlice';
 import { updateQuotation } from '@/services/quotationService';
 import { getQuotations } from '@/store/slices/quotationsSlice';
 import { getRoman } from '@/utils/roman_number';
 import type { AppDispatch } from '@/store';
+import { QUOTATION_STAGES } from '@/constants/constant';
 
 export default function CreateQuotationIndex() {
   const dispatch = useDispatch<AppDispatch>()
 
   const leads = useSelector((s: any) => (s && s.leads ? s.leads.leads || [] : []));
   const qb = useSelector((state: RootState) => state.quotationBuilder);
-  const specificationBuilder = useSelector((state: RootState) => state.specifications);
+  const [showStagePicker, setShowStagePicker] = useState(false);
   const token = useSelector((state: RootState) => state.auth.token);
   const user = useSelector((state: RootState) => state.auth.user);
 
   const selectedLead = qb.selectedLead || null;
   const selectedProducts = qb.selectedProducts || [];
   const reduxDiscount = qb.discount || { type: 'percentage', value: 0 };
+  const stage = qb.stage || '';
   const allTerms = qb.terms || [];
   const selectedTerms = qb.selectedTerms || [];
   const allSpecifications = qb.allSpecifications || []; // full list
@@ -68,9 +70,6 @@ export default function CreateQuotationIndex() {
   const [discountType, setDiscountType] = useState(reduxDiscount.type || 'percentage');
   const [discountValue, setDiscountValue] = useState(String(reduxDiscount.value || '0'));
   const [search, setSearch] = useState('');
-
-  // useEffect(() => {
-  // }, [isEditMode, editingQuotationId, selectedLead, selectedProducts, selectedSpecifications]);
 
   useEffect(() => {
     if (isEditMode && !editingQuotationId) return;
@@ -143,7 +142,7 @@ export default function CreateQuotationIndex() {
     });
   };
 
-  const handleRemoveItem = (productId: string) => {
+  const handleRemoveItem = (productId: number) => {
     Alert.alert(
       'Remove Item',
       'Are you sure you want to remove this item?',
@@ -262,6 +261,7 @@ export default function CreateQuotationIndex() {
             value: Number(currentDiscountValue) || 0,
           },
           discountAmount: getDiscountAmount(),
+          stage,
           totalAmount: total,
           specifications: selectedSpecifications,
           terms: allTerms
@@ -369,6 +369,48 @@ export default function CreateQuotationIndex() {
 
             <ChevronRight size={20} color="#94A3B8" />
           </TouchableOpacity>
+
+          {/* Stage Selector */}
+          <View style={styles.fieldWrapper}>
+            <Text style={styles.label}>Stage *</Text>
+            <TouchableOpacity
+              style={styles.stageSelector}
+              onPress={() => setShowStagePicker(!showStagePicker)}
+            >
+              <Text style={styles.stageSelectorText}>
+                {stage?.length ? stage : "Select Stage"}
+              </Text>
+              <Text>{showStagePicker ? "▲" : "▼"}</Text>
+            </TouchableOpacity>
+
+            {showStagePicker && (
+              <View style={styles.stageDropdown}>
+                {QUOTATION_STAGES.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[
+                      styles.stageOption,
+                      stage === item && styles.stageOptionActive,
+                    ]}
+                    onPress={() => {
+                      dispatch(setStage(item));
+                      setShowStagePicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.stageOptionText,
+                        stage === item &&
+                        styles.stageOptionTextActive,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
 
         {/* Items Section */}
@@ -1550,5 +1592,48 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#0F172A',
     lineHeight: 22,
+  },
+  fieldWrapper: {
+    marginTop: 14,
+  },
+
+  label: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#444",
+    marginBottom: 6,
+  },
+  stageSelector: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  stageSelectorText: {
+    color: "#111",
+  },
+  stageDropdown: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginTop: 5,
+    borderRadius: 8,
+  },
+
+  stageOption: {
+    padding: 10,
+  },
+
+  stageOptionText: {
+    color: "#333",
+  },
+  stageOptionActive: {
+    backgroundColor: '#F9FAFB',
+  },
+  stageOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });

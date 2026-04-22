@@ -7,7 +7,7 @@ import { fetchSpecifications } from '@/services/specificationsService';
 
 
 export interface SelectedProduct {
-  productId: string;
+  productId: number;
   product_name: string;        // ✅ ADD
   categoryId: string;          // ✅ ADD
   categoryName: string;        // ✅ ADD
@@ -40,6 +40,7 @@ interface QuotationBuilderState {
   selectedLead: string | null;
   selectedProducts: SelectedProduct[];
   discount: Discount;
+  stage: string;
   terms: Term[];
   selectedTerms: string[];
   allSpecifications: any[];
@@ -105,6 +106,7 @@ const initialState: QuotationBuilderState = {
   selectedLead: null,
   selectedProducts: [],
   discount: { type: 'percentage', value: 0 },
+  stage: 'Proposal',
   terms: defaultTerms,
   selectedTerms: defaultTerms.map(t => t.id),
   paymentTerms: defaultPaymentTerms,
@@ -273,11 +275,15 @@ const quotationBuilderSlice = createSlice({
     setSpecifications: (state, action: PayloadAction<string[]>) => {
       state.selectedSpecifications = action.payload || [];
     },
+    setStage: (state, action: PayloadAction<string>) => {
+      state.stage = action.payload;
+    },
     saveQuotation: (state, action: PayloadAction<any>) => {
       // Reset builder state after saving
       state.selectedLead = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
+      state.stage = 'Proposal';
       state.selectedTerms = [];
       state.selectedPaymentTerms = [];
     },
@@ -287,6 +293,7 @@ const quotationBuilderSlice = createSlice({
         state.selectedLead = null;
         state.selectedProducts = [];
         state.discount = { type: 'percentage', value: 0 };
+        state.stage = 'Proposal';
         state.selectedTerms = state.terms.map(t => t.id);
         state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
 
@@ -308,6 +315,7 @@ const quotationBuilderSlice = createSlice({
       state.selectedLead = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
+      state.stage = 'Proposal';
       state.selectedTerms = state.terms.map(t => t.id);
       state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
       // state.currentStep = 'select-lead';
@@ -335,7 +343,7 @@ const quotationBuilderSlice = createSlice({
       state.editingQuotationId = action.payload.quotationId || null;
       state.prefillData = action.payload.prefillData || null;
       state.selectedSpecifications = action.payload.prefillData?.specifications || [];
-
+      state.stage = action.payload.prefillData?.stage || '';
       const specs = action.payload.prefillData?.specifications || [];
       state.selectedSpecifications = specs.map((s: any) => String(s.id));
       // if (action.payload.currentStep) {
@@ -429,6 +437,7 @@ export const {
   updateProductConfig,
   setDiscount,
   setTerms,
+  setStage,
   setPaymentTerms,
   saveQuotation,
   resetBuilder,

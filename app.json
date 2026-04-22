@@ -8,6 +8,10 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "notification": {
+      "icon": "./assets/images/decoliving_notification_icon.png",
+      "color": "#007AFF"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.decolivings.app"
@@ -21,7 +25,8 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

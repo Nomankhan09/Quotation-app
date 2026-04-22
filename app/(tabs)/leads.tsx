@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  StyleSheet
+  StyleSheet,
+  PermissionsAndroid
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
@@ -82,6 +83,25 @@ export default function LeadsScreen() {
       </View>
     </TouchableOpacity>
   );
+
+
+  const fetchLogs = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+      );
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        // console.log('Permission granted');
+      } else {
+        console.log('Permission denied');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => { fetchLogs(); }, []);
 
   return (
     <View style={styles.container}>

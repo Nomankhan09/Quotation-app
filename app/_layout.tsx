@@ -10,8 +10,7 @@ import StartupScreen from '@/components/StartupScreen';
 import LoginScreen from '@/components/LoginScreen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Easing } from 'react-native';
-
+import * as Notifications from 'expo-notifications';
 
 // import QuotationFlowNavigator from '@/components/QuotationFlowNavigator';
 
@@ -65,6 +64,31 @@ function AppNavigator() {
 
 export default function RootLayout() {
   useFrameworkReady();
+
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+
+
+  useEffect(() => {
+    const setupNotifications = async () => {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor:"#f3e5e57c",
+      });
+    };
+
+    setupNotifications();
+  }, []);
+
 
   return (
     <>

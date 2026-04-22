@@ -109,7 +109,7 @@ export default function DiscountScreen() {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Order Summary</Text>
           {selectedProducts.map((selectedProduct) => {
-            const product = products.find(p => p.id === selectedProduct.productId);
+            const product = products.find(p => Number(p.id) === selectedProduct.productId);
             if (!product) return null;
 
             return (

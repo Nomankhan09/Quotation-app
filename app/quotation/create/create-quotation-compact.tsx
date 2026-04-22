@@ -53,6 +53,7 @@ import {
   SelectedProduct,
   setSpecifications,
   addSpecification,
+  setStage,
 } from '@/store/slices/quotationBuilderSlice';
 import { saveQuotation, editQuotation } from '@/store/slices/quotationsSlice';
 import { addLead } from '@/store/slices/leadsSlice';
@@ -65,6 +66,7 @@ import {
   addCustomPaymentTerm
 } from '@/store/slices/quotationBuilderSlice';
 import { createSpecification } from '@/services/specificationsService';
+import { QUOTATION_STAGES } from '@/constants/constant';
 
 export default function CreateQuotationCompactScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -82,6 +84,7 @@ export default function CreateQuotationCompactScreen() {
     selectedProducts,
     discount,
     terms,
+    stage,
     selectedTerms,
     paymentTerms,
     selectedPaymentTerms,
@@ -97,8 +100,11 @@ export default function CreateQuotationCompactScreen() {
   const [showPaymentTermModal, setShowPaymentTermModal] = useState(false);
   const [showSpecificationModal, setShowSpecificationModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStagePicker, setShowStagePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
+
+  console.log('selectedTerms',selectedTerms);
 
   // Discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(discount.type);
@@ -180,8 +186,6 @@ export default function CreateQuotationCompactScreen() {
   }, [
     termsInitialized,
     paymentTermsInitialized,
-    selectedTerms,
-    selectedPaymentTerms,
     selectedSpecifications,
     editMode,
   ]);
@@ -248,17 +252,17 @@ export default function CreateQuotationCompactScreen() {
     setShowClientModal(false);
   };
 
-  const handleSelectProduct = (productId: string) => {
+  const handleSelectProduct = (productId: number) => {
     const isSelected = selectedProducts.some(p => p.productId === productId);
 
     if (isSelected) {
       const updatedProducts = selectedProducts.filter(p => p.productId !== productId);
       dispatch(setSelectedProducts(updatedProducts));
     } else {
-      const product = products.find(p => p.id === productId);
+      const product = products.find(p => Number(p.id) === productId);
       if (product) {
         const newSelectedProduct: SelectedProduct = {
-          productId: productId,
+          productId: Number(productId),
           unitPrice: product.unit_price,
           length: 1,
           width: 1,
@@ -274,7 +278,7 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
-  const handleUpdateProduct = (productId: string, field: string, value: any) => {
+  const handleUpdateProduct = (productId: number, field: string, value: any) => {
     const updatedProducts = selectedProducts.map(p => {
       if (p.productId === productId) {
         const updated = { ...p, [field]: value };
@@ -295,7 +299,7 @@ export default function CreateQuotationCompactScreen() {
     dispatch(updateProductConfig(updatedProducts));
   };
 
-  const changeQty = (productId: string, by: number) => {
+  const changeQty = (productId: number, by: number) => {
     const product = selectedProducts.find(p => p.productId === productId);
     if (product) {
       const newQty = Math.max(1, product.quantity + by);
@@ -303,7 +307,7 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
-  const changeLength = (productId: string, by: number) => {
+  const changeLength = (productId: number, by: number) => {
     const product = selectedProducts.find(p => p.productId === productId);
     if (product) {
       const newLength = Math.max(0, Math.round((product.length + by) * 100) / 100);
@@ -311,7 +315,7 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
-  const changeWidth = (productId: string, by: number) => {
+  const changeWidth = (productId: number, by: number) => {
     const product = selectedProducts.find(p => p.productId === productId);
     if (product) {
       const newWidth = Math.max(0, Math.round((product.width + by) * 100) / 100);
@@ -321,7 +325,7 @@ export default function CreateQuotationCompactScreen() {
 
   const handleToggleTerm = (termId: string) => {
     const updatedTerms = selectedTerms.includes(termId)
-      ? selectedTerms.filter(id => id !== termId)
+      ? selectedTerms.filter(id => id.toString() !== termId)
       : [...selectedTerms, termId];
     dispatch(setTerms(updatedTerms));
   };
@@ -372,6 +376,8 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
+  console.log('selectedTerms',selectedTerms);
+  console.log('terms -> ',terms);
   const handleSaveQuotation = async () => {
     try {
       setSaving(true);
@@ -398,6 +404,7 @@ export default function CreateQuotationCompactScreen() {
         discountAmount: parseFloat(getDiscountAmount().toFixed(2)),
         totalAmount: parseFloat(getFinalTotal().toFixed(2)),
         terms: selectedTerms.map(id => terms.find(t => t.id === id)?.text).filter(Boolean),
+        stage,
         paymentTerms: selectedPaymentTerms.map(id => {
           const pt = paymentTerms.find(p => p.id === id);
           return pt ? { id: pt.id, description: pt.description, value: pt.value } : null;
@@ -504,6 +511,48 @@ export default function CreateQuotationCompactScreen() {
           )}
         </View>
 
+        {/* Stage Indicator */}
+        <View style={styles.fieldWrapper}>
+          <Text style={styles.label}>Stage *</Text>
+          <TouchableOpacity
+            style={styles.stageSelector}
+            onPress={() => setShowStagePicker(!showStagePicker)}
+          >
+            <Text style={styles.stageSelectorText}>
+              {stage?.length ? stage : "Select Stage"}
+            </Text>
+            <Text>{showStagePicker ? "▲" : "▼"}</Text>
+          </TouchableOpacity>
+
+          {showStagePicker && (
+            <View style={styles.stageDropdown}>
+              {QUOTATION_STAGES.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.stageOption,
+                    stage === item && styles.stageOptionActive,
+                  ]}
+                  onPress={() => {
+                    dispatch(setStage(item));
+                    setShowStagePicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.stageOptionText,
+                      stage === item &&
+                      styles.stageOptionTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Products Section */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -532,7 +581,7 @@ export default function CreateQuotationCompactScreen() {
           ) : (
             <View style={styles.productsContainer}>
               {selectedProducts.map((item, index) => {
-                const product = products.find(p => p.id === item.productId);
+                const product = products.find(p => Number(p.id) === item.productId);
                 if (!product) return null;
 
                 return (
@@ -933,8 +982,8 @@ export default function CreateQuotationCompactScreen() {
 
           <FlatList
             data={leads.filter(lead =>
-              lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              lead.company_name.toLowerCase().includes(searchQuery.toLowerCase())
+              lead.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              lead.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
             )}
             renderItem={({ item }) => (
               <TouchableOpacity
@@ -993,13 +1042,13 @@ export default function CreateQuotationCompactScreen() {
               product.product_name.toLowerCase().includes(searchQuery.toLowerCase())
             )}
             renderItem={({ item }) => {
-              const isSelected = selectedProducts.some(p => p.productId === item.id);
+              const isSelected = selectedProducts.some(p => Number(p.productId) === Number(item.id));
               const category = categories.find(c => c.id === item.category_id);
 
               return (
                 <TouchableOpacity
                   style={[styles.modalItem, isSelected && styles.modalItemActive]}
-                  onPress={() => handleSelectProduct(item.id)}
+                  onPress={() => handleSelectProduct(Number(item.id))}
                   activeOpacity={0.7}
                 >
                   <View style={styles.modalItemContent}>
@@ -1173,7 +1222,7 @@ export default function CreateQuotationCompactScreen() {
                 Description
               </Text>
 
-              {newSpecification.description.map((desc, index) => (
+              {newSpecification.description.map((desc: any, index: number) => (
                 <View key={index} style={styles.specRow}>
 
                   <TextInput
@@ -2131,5 +2180,49 @@ const styles = StyleSheet.create({
   specDesc: {
     fontSize: 12,
     color: "#64748B",
+  },
+  fieldWrapper: {
+    marginTop: 4,
+    marginBottom: 14,
+  },
+
+  label: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#444",
+    marginBottom: 6,
+  },
+  stageSelector: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  stageSelectorText: {
+    color: "#111",
+  },
+  stageDropdown: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginTop: 5,
+    borderRadius: 8,
+  },
+
+  stageOption: {
+    padding: 10,
+  },
+
+  stageOptionText: {
+    color: "#333",
+  },
+  stageOptionActive: {
+    backgroundColor: '#F9FAFB',
+  },
+  stageOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });

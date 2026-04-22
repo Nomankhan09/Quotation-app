@@ -6,6 +6,7 @@ import authSlice from './slices/authSlice';
 import leadsSlice from './slices/leadsSlice';
 import productsSlice from './slices/productsSlice';
 import categoriesSlice from './slices/categoriesSlice';
+import followUpSlice from './slices/followUpSlice';
 import quotationsSlice from './slices/quotationsSlice';
 import quotationBuilderSlice from './slices/quotationBuilderSlice';
 import dashboardSlice from './slices/dashboardSlice';
@@ -24,6 +25,7 @@ const rootReducer = combineReducers({
   leads: leadsSlice,
   products: productsSlice,
   categories: categoriesSlice,
+  followUp: followUpSlice,
   quotations: quotationsSlice,
   quotationBuilder: quotationBuilderSlice,
   dashboard: dashboardSlice,

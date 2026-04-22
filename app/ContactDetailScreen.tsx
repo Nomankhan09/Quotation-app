@@ -1,5 +1,5 @@
 // ContactDetailScreen.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,233 +7,406 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  SafeAreaView,
   Linking,
+  ActivityIndicator,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '@/utils/avatar';
 import { StageBadge } from '@/utils/stageBadge';
 import ContactFormModal from '@/components/ContactFormModal';
 import { STAGES } from '@/constants/constant';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import CallLogs from 'react-native-call-log';
+import { ICallLog } from '@/interface/callLogs';
+import TaskBottomSheet from '@/components/Task';
+import LeadFollowUps from './LeadFollowUps';
 
-type ContactData = {
-  id: string;
-  full_name: string;
-  title: string;
-  stage: string;
-  company?: string;
-  email: string;
-  phone: string;
-  location: string;
-  source: string;
-  dealValue: number;
-  dealName: string;
-  closeDate: string;
-  probability: number;
-  notes?: string;
-  timeline: Array<{
-    id: number;
-    type: 'proposal' | 'demo';
-    title: string;
-    subtitle: string;
-    date: string;
-    icon: 'mail' | 'call';
-  }>;
-};
+type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
+const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
+
+// const SCORE_BREAKDOWN = [
+//   { label: 'Engagement', value: 88, color: '#22c55e' },
+//   { label: 'Fit', value: 85, color: '#22c55e' },
+//   { label: 'Intent', value: 76, color: '#22c55e' },
+//   { label: 'Demo', value: 72, color: '#22c55e' },
+// ];
 
 const ContactDetailScreen = () => {
   const navigation = useNavigation();
-  const [showEditModal, setShowEditModal] = React.useState(false);
   const route = useRoute();
+  const [activeTab, setActiveTab] = React.useState<TabKey>('Overview');
+  const [showEditModal, setShowEditModal] = React.useState(false);
+  const [showTaskSheet, setShowTaskSheet] = React.useState(false);
+  const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
+  const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
+  const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
 
-  // Data coming from previous screen via navigation
   const contact = useSelector((state: RootState) => {
     const contactParam = JSON.parse(route.params?.contact);
     return state.leads.leads.find(l => l?.id?.toString() === contactParam.id?.toString());
-});
+  });
 
-if (!contact) {
-  return (
-    <View style={styles.center}>
-      <Text>No contact data found</Text>
+  if (!contact) {
+    return (
+      <View style={styles.center}>
+        <Text>No contact data found</Text>
+      </View>
+    );
+  }
+
+  // ─── Call Log Helpers ───────────────────────────────────────────────────────
+  const getCallStyle = (type: string) => {
+    switch (type) {
+      case 'INCOMING': return { icon: 'call-outline', secondaryIcon: 'arrow-down-outline', color: '#22c55e', bg: '#dcfce7' };
+      case 'OUTGOING': return { icon: 'call-outline', secondaryIcon: 'arrow-up-outline', color: '#3b82f6', bg: '#dbeafe' };
+      case 'MISSED': return { icon: 'call-outline', secondaryIcon: 'close-outline', color: '#ef4444', bg: '#fee2e2' };
+      default: return { icon: 'call-outline', color: '#888', bg: '#f3f4f6' };
+    }
+  };
+
+  const formatDuration = (seconds: string) => {
+    const sec = parseInt(seconds);
+    if (!sec || sec === 0) return 'No answer';
+    if (sec < 60) return `${sec}s`;
+    return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+  };
+
+  const formatDate = (timestamp: string) => {
+    const d = new Date(parseInt(timestamp));
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    if (isToday)
+      return `Today, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return (
+      d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
+      ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
+  };
+
+  const requestCallLogPermission = async () => {
+    if (Platform.OS !== 'android') return false;
+
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
+      );
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
+  const fetchCallHistory = async () => {
+    setIsCallLogLoading(true);
+    try {
+      if (!contact.phone) return;
+
+      // check permission and ask for it
+      const hasPermission = await requestCallLogPermission();
+
+      if (!hasPermission) {
+        console.log('Call log permission denied');
+        return;
+      }
+
+      const logs = await CallLogs.load(100, { phoneNumbers: contact?.phone });
+      setCallLogs(logs as ICallLog[]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCallLogLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchCallHistory(); }, [contact.phone]);
+
+  const filteredLogs =
+    callFilter === 'ALL' ? callLogs : callLogs.filter(l => l.type === callFilter);
+
+  const totalDuration = callLogs.reduce(
+    (sum, l) => sum + parseInt(l.duration?.toString() || '0'), 0,
+  );
+  const formatTotalDuration = (sec: number) => {
+    if (sec < 60) return `${sec}s`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+    return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+  };
+
+  // ─── Actions ────────────────────────────────────────────────────────────────
+
+  const actions = [
+    {
+      label: 'Call', icon: 'call', bg: '#D6ECFF', text: '#1E88E5',
+      onPress: () => Linking.openURL(`tel:${contact.phone || ''}`),
+    },
+    {
+      label: 'Email', icon: 'mail', bg: '#DFF7E3', text: '#2E7D32',
+      onPress: () => {
+        const sub = encodeURIComponent('Regarding Your Interior Requirements');
+        const body = encodeURIComponent(`Hello ${contact.full_name || ''},\n\nI hope you're doing well.\n\nThis is from Decolivings. Thank you for showing interest in our services.\n\n`);
+        Linking.openURL(`mailto:${contact.email || ''}?subject=${sub}&body=${body}`);
+      },
+    },
+    {
+      label: 'Meet', icon: 'calendar', bg: '#EDE7F6', text: '#5E35B1',
+      onPress: () => console.log('Open Meet'),
+    },
+  ];
+
+  // ─── Lead Score ─────────────────────────────────────────────────────────────
+
+  const leadScore = 82; // Replace with contact.lead_score when available
+  const nextAction = contact.next_action || 'Call';
+  const nextActionDate = contact.next_action_date || 'Apr 16';
+
+  // Score ring
+  const circumference = 2 * Math.PI * 28;
+  const progress = (leadScore / 100) * circumference;
+
+  // ─── Render helpers ──────────────────────────────────────────────────────────
+
+  const ScoreBar = ({ label, value, color }: { label: string; value: number; color: string }) => (
+    <View style={styles.scoreBarRow}>
+      <Text style={styles.scoreBarLabel}>{label}</Text>
+      <View style={styles.scoreBarTrack}>
+        <View style={[styles.scoreBarFill, { width: `${value}%` as any, backgroundColor: color }]} />
+      </View>
+      <Text style={styles.scoreBarValue}>{value}</Text>
     </View>
   );
-}
 
-const actions = [
-  {
-    label: 'Call',
-    bg: '#D6ECFF',
-    text: '#1E88E5',
-    onPress: () => Linking.openURL(contact.phone ? `tel:${contact.phone}` : 'tel:'),
-  },
-  {
-    label: 'Email',
-    bg: '#DFF7E3',
-    text: '#2E7D32',
-    onPress: () =>
-      Linking.openURL(contact.email ? `mailto:${contact.email}?subject=Hello&body=Hi there` : 'mailto:'),
-  },
-  {
-    label: 'Note',
-    bg: '#FFE8D6',
-    text: '#EF6C00',
-    onPress: () => console.log('Open Notes Screen'),
-  },
-  // {
-  //   label: 'Task',
-  //   bg: '#E8DDFF',
-  //   text: '#6A1B9A',
-  //   onPress: () => console.log('Open Task Screen'),
-  // },
-];
+  const CallFilterPill = ({
+    label, type, count, color,
+  }: { label: string; type: string; count: number; color: string }) => (
+    <TouchableOpacity
+      style={[styles.filterPill, callFilter === type && { backgroundColor: color + '18', borderColor: color }]}
+      onPress={() => setCallFilter(type as any)}
+    >
+      <Text style={[styles.filterPillCount, { color: callFilter === type ? color : '#555' }]}>{count}</Text>
+      <Text style={[styles.filterPillLabel, callFilter === type && { color }]}>{label}</Text>
+    </TouchableOpacity>
+  );
 
-return (
-  <SafeAreaView style={styles.container}>
-    <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+  // ─── Tab Content ─────────────────────────────────────────────────────────────
 
-    {/* Header */}
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={24} color="#007AFF" />
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.headerTitle}>{contact.full_name}</Text>
-
-      <TouchableOpacity
-        onPress={() => { setShowEditModal(true); }}
-        style={styles.editButton}
-      >
-        <Ionicons name="create-outline" size={18} color="#007AFF" />
-        <Text style={styles.editText}>Edit</Text>
-      </TouchableOpacity>
-    </View>
-
-    <ScrollView showsVerticalScrollIndicator={false}>
-
-      {/* PROFILE CARD */}
-      <View style={styles.card}>
-        <View style={styles.profileRow}>
-          <Avatar item={contact} height={60} width={60} />
-
-          <View style={styles.profileInfo}>
-            <Text style={styles.name}>{contact.full_name}</Text>
-            {contact?.stage &&
-              <StageBadge stage={contact.stage} size={4} />
-            }
-            {contact?.company &&
-              <Text style={styles.subtitle}>
-                {contact.title} • {contact.company}
-              </Text>
-            }
+  const renderOverview = () => (
+    <>
+      {/* Lead Score + Next Action */}
+      {/* <View style={styles.scoreCard}>
+        <View style={styles.scoreLeft}>
+          <Text style={styles.scoreCardLabel}>Lead score</Text>
+          <View style={styles.ringWrap}>
+            <Svg
+              width={72}
+              height={72}
+              viewBox="0 0 72 72"
+              style={{ position: 'absolute' } as any}
+            >
+              <Circle cx={36} cy={36} r={28} fill="none" stroke="#e5e7eb" strokeWidth={5} />
+              <Circle
+                cx={36} cy={36} r={28} fill="none"
+                stroke="#22c55e" strokeWidth={5}
+                strokeDasharray={`${progress} ${circumference}`}
+                strokeDashoffset={circumference / 4}
+                strokeLinecap="round"
+              />
+            </Svg>
+            <Text style={styles.ringScore}>{leadScore}</Text>
+          </View>
+          <View style={[styles.badge, { backgroundColor: '#fee2e2' }]}>
+            <Text style={[styles.badgeText, { color: '#ef4444' }]}>Hot</Text>
           </View>
         </View>
-      </View>
 
-      {/* ACTION BUTTONS */}
-      <View style={styles.card}>
-        <View style={styles.actionRow}>
-          {actions.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              onPress={item.onPress}
-              style={[
-                styles.actionBtn,
-                { backgroundColor: item.bg }
-              ]}
-            >
-              <Text style={[styles.actionText, { color: item.text }]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.scoreDivider} />
+
+        <View style={styles.scoreRight}>
+          <Text style={styles.scoreCardLabel}>Next action</Text>
+          <Text style={styles.nextActionDate}>{nextActionDate}</Text>
+          <Text style={styles.nextActionLabel}>{nextAction}</Text>
         </View>
-      </View>
+      </View> */}
 
-      {/* CONTACT INFO */}
+      {/* Score Breakdown */}
+      {/* <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Score Breakdown</Text>
+        {SCORE_BREAKDOWN.map(item => (
+          <ScoreBar key={item.label} {...item} />
+        ))}
+      </View> */}
+
+      {/* Contact Info */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Contact info</Text>
-
+        <Text style={styles.sectionTitle}>Contact Info</Text>
         {[
           ['Email', contact.email],
-          ['Phone', "+91 " + contact.phone],
+          ['Phone', '+91 ' + contact.phone],
           ['Location', contact.location],
           ['Source', contact.source],
-        ].map(([label, value], i) => (
-          <View key={i} style={styles.row}>
-            <Text style={styles.label}>{label}</Text>
-            <Text style={styles.value}>{value}</Text>
+        ].map(([label, value], i, arr) => (
+          <View key={i} style={[styles.infoRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+            <Text style={styles.infoLabel}>{label}</Text>
+            <Text style={[styles.infoValue, label === 'Email' && { color: '#3b82f6' }]}>{value}</Text>
           </View>
         ))}
       </View>
 
-      {/* Note */}
-      {contact.notes ? (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Note</Text>
-          <Text style={styles.value}>{contact.notes}</Text>
-        </View>
-      ) : (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Note</Text>
-          <Text style={[styles.value, { color: '#999' }]}>No notes added</Text>
-        </View>
-      )}
-
-      {/* ACTIVE DEAL */}
-      {/* <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Active deal</Text>
-
-          <Text style={styles.dealTitle}>{contact.dealName}</Text>
-
-          <View >
-            <Text style={styles.badgeText}>Negotiation</Text>
-          </View>
-
-          <Text style={styles.valueText}>
-            Value: <Text style={styles.bold}>${contact.dealValue}</Text>
-          </Text>
-
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${contact.probability}%` }]} />
-          </View>
-
-          <Text style={styles.probText}>
-            {contact.probability}% probability
-          </Text>
-
-          <Text  >
-            Close: <Text style={styles.bold}>{contact.closeDate}</Text>
-          </Text>
-        </View> */}
-
-      {/* TIMELINE */}
-      {/* <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Timeline</Text>
-
-          {contact.timeline?.map((t, i) => (
-            <View key={i} style={styles.timelineRow}>
-              <View style={styles.iconBox}>
-                <Ionicons
-                  name={t.icon === 'mail' ? 'mail-outline' : 'call-outline'}
-                  size={18}
-                  color="#007AFF"
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.timelineTitle}>{t.title}</Text>
-                <Text style={styles.timelineSub}>{t.subtitle}</Text>
-              </View>
-
-              <Text style={styles.timelineDate}>{t.date}</Text>
+      {/* Call History (inline) */}
+      <View style={styles.card}>
+        <View style={styles.callHistoryHeader}>
+          <Text style={styles.sectionTitle}>Call History</Text>
+          {!isCallLogLoading && callLogs.length > 0 && (
+            <View style={[styles.badge, { backgroundColor: '#dbeafe' }]}>
+              <Text style={[styles.badgeText, { color: '#3b82f6' }]}>
+                {callLogs.length} calls · {formatTotalDuration(totalDuration)}
+              </Text>
             </View>
-          ))}
-        </View> */}
+          )}
+        </View>
+
+        {/* Filter pills */}
+        <View style={styles.filterRow}>
+          <CallFilterPill label="All" type="ALL" count={callLogs.length} color="#6366f1" />
+          <CallFilterPill label="Incoming" type="INCOMING" count={callLogs.filter(l => l.type === 'INCOMING').length} color="#22c55e" />
+          <CallFilterPill label="Outgoing" type="OUTGOING" count={callLogs.filter(l => l.type === 'OUTGOING').length} color="#3b82f6" />
+          <CallFilterPill label="Missed" type="MISSED" count={callLogs.filter(l => l.type === 'MISSED').length} color="#ef4444" />
+        </View>
+
+        {isCallLogLoading ? (
+          <ActivityIndicator size="small" color="#6366f1" style={{ marginVertical: 20 }} />
+        ) : filteredLogs.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="call-outline" size={36} color="#ddd" />
+            <Text style={styles.emptyText}>No calls found</Text>
+          </View>
+        ) : (
+          filteredLogs.map((item, index) => {
+            const s = getCallStyle(item.type);
+            return (
+              <View key={index} style={[styles.logRow, index === 0 && { borderTopWidth: 0 }]}>
+                <View style={[styles.logIconWrap, { backgroundColor: s.bg }]}>
+                  <Ionicons name={s.icon as any} size={15} color={s.color} />
+                  {s.secondaryIcon && (
+                    <Ionicons
+                      name={s.secondaryIcon as any}
+                      size={10} color={s.color}
+                      style={{ position: 'absolute', bottom: -2, right: -2 }}
+                    />
+                  )}
+                </View>
+                <View style={styles.logMeta}>
+                  <Text style={[styles.logType, { color: s.color }]}>{item.type}</Text>
+                  <Text style={styles.logDate}>{formatDate(item.timestamp)}</Text>
+                </View>
+                <View style={styles.logRight}>
+                  <Text style={styles.logDur}>{formatDuration(item.duration?.toString())}</Text>
+                  {parseInt(item.duration?.toString() || '0') > 0 && (
+                    <View style={styles.durBar}>
+                      <View style={[styles.durFill, {
+                        width: `${Math.min((parseInt(item.duration?.toString() || '0') / 300) * 100, 100)}%` as any,
+                        backgroundColor: s.color,
+                      }]} />
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
+      </View>
+    </>
+  );
+
+  const renderEmptyTab = (label: string) => (
+    <View style={styles.emptyTab}>
+      <Ionicons name="document-outline" size={40} color="#ddd" />
+      <Text style={styles.emptyTabText}>No {label.toLowerCase()} yet</Text>
+    </View>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'Overview': return renderOverview();
+      // case 'Follow-ups': return renderEmptyTab('follow-ups');
+      case 'Follow-ups': return <LeadFollowUps lead={contact} />;
+      case 'Notes': return renderEmptyTab('notes');
+      case 'Activity': return renderEmptyTab('activity');
+      case 'Tasks': return renderEmptyTab('tasks');
+    }
+  };
+
+  // ─── Main render ─────────────────────────────────────────────────────────────
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color="#007AFF" />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editBtn}>
+          <Ionicons name="create-outline" size={16} color="#007AFF" />
+          <Text style={styles.editText}>Edit</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Profile hero */}
+      <View style={styles.hero}>
+        <Avatar item={contact} height={52} width={52} />
+        <View style={styles.heroInfo}>
+          <Text style={styles.heroName}>{contact.full_name}</Text>
+          <View style={styles.heroTags}>
+            {contact?.stage && <StageBadge stage={contact.stage} size={4} />}
+            {/* <View style={[styles.badge, { backgroundColor: '#fee2e2', marginLeft: 6 }]}>
+              <Text style={[styles.badgeText, { color: '#ef4444' }]}>Hot</Text>
+            </View> */}
+          </View>
+          {contact?.company &&
+            <Text style={styles.heroSub}>
+              {contact.title}{contact.company ? ` · ${contact.company}` : ''}
+            </Text>
+          }
+        </View>
+      </View>
+
+      {/* Action buttons */}
+      <View style={styles.actionRow}>
+        {actions.map((item, i) => (
+          <TouchableOpacity key={i} onPress={item.onPress} style={styles.actionBtn} activeOpacity={0.75}>
+            <Ionicons name={item.icon as any} size={16} color={item.text} style={{ marginRight: 5 }} />
+            <Text style={[styles.actionText, { color: item.text }]}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabBar}>
+        {TABS.map(tab => (
+          <TouchableOpacity key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
+            <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>{tab}</Text>
+            {activeTab === tab && <View style={styles.tabUnderline} />}
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Tab content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
+        {renderTabContent()}
+      </ScrollView>
 
       {/* Edit Modal */}
       <ContactFormModal
@@ -244,373 +417,170 @@ return (
         onClose={() => setShowEditModal(false)}
       />
 
-    </ScrollView>
-  </SafeAreaView>
-);
+      {/* Task Sheet */}
+      <TaskBottomSheet
+        open={showTaskSheet}
+        onClose={() => setShowTaskSheet(false)}
+        contact={contact}
+        onSave={(data) => console.log('Saved:', data)}
+      />
+    </SafeAreaView>
+  );
 };
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
+  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 10,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  backBtn: { flexDirection: 'row', alignItems: 'center' },
+  backText: { color: '#007AFF', fontSize: 16, marginLeft: 2 },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#EAF2FF', paddingVertical: 5,
+    paddingHorizontal: 12, borderRadius: 20,
   },
-  backText: {
-    color: '#007AFF',
-    fontSize: 17,
-    marginLeft: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    flex: 1,
-    color: '#333',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  profileSection: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+  editText: { color: '#007AFF', fontSize: 13, fontWeight: '600', marginLeft: 4 },
+
+  // Hero
+  hero: {
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff',
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '600',
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-  },
-  tag: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  tagText: {
-    color: '#FF9800',
-    fontWeight: '600',
-  },
-  actionButtons: {
+  heroInfo: { marginLeft: 12, flex: 1 },
+  heroName: { fontSize: 18, fontWeight: '700', color: '#111' },
+  heroSub: { fontSize: 12, color: '#888', marginTop: 1 },
+  heroTags: { flexDirection: 'row', alignItems: 'center', marginTop: 5 },
+
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+
+  // Actions
+  actionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: 16, paddingVertical: 10,
+    gap: 10,
+    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
   },
-  actionButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, borderRadius: 10,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb',
   },
-  actionButtonText: {
-    fontWeight: '600',
-    color: '#333',
-  },
-  section: {
-    marginTop: 16,
-    backgroundColor: '#fff',
-    padding: 16,
-  },
-  infoRow: {
+  actionText: { fontSize: 14, fontWeight: '600' },
+
+  // Tabs
+  tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  infoLabel: {
-    color: '#666',
-    fontSize: 15,
-  },
-  infoValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#007AFF',
-  },
-  dealCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
+    borderBottomWidth: 1, borderBottomColor: '#ebebeb',
+    paddingHorizontal: 4,
   },
-  dealHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  tabItem: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+  tabLabel: { fontSize: 13, color: '#999', fontWeight: '500' },
+  tabLabelActive: { color: '#007AFF', fontWeight: '700' },
+  tabUnderline: {
+    position: 'absolute', bottom: 0,
+    height: 2, width: '80%', backgroundColor: '#007AFF', borderRadius: 1,
   },
 
-  negotiateTag: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  negotiateText: {
-    color: '#FF9800',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  valueLabel: {
-    fontSize: 15,
-    marginBottom: 8,
-  },
-
-  progressContainer: {
-    marginVertical: 12,
-  },
-
-  probabilityText: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 4,
-  },
-  closeDate: {
-    fontSize: 15,
-    color: '#666',
-  },
-  date: {
-    fontWeight: '600',
-    color: '#000',
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  timelineIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  timelineContent: {
-    flex: 1,
-  },
-
-  timelineSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  // Cards
   card: {
     backgroundColor: '#fff',
-    marginHorizontal: 12,
-    marginTop: 12,
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    marginHorizontal: 14, marginTop: 14,
+    borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.04,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
 
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  profileInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-
-  badge: {
-    marginTop: 6,
-    backgroundColor: '#FFF3E0',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-
-  badgeText: {
-    color: '#FF9800',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-
-  actionBtn: {
-    flex: 1,
-    marginHorizontal: 4,
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-
-  actionText: {
-    fontWeight: '600',
-    color: '#333',
-  },
-
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontSize: 11, fontWeight: '700', color: '#999',
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
   },
 
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  // Lead Score card
+  scoreCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', marginHorizontal: 14, marginTop: 14,
+    borderRadius: 16, padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
+  scoreLeft: { flex: 1, alignItems: 'center' },
+  scoreRight: { flex: 1, paddingLeft: 16 },
+  scoreDivider: { width: 1, height: 80, backgroundColor: '#f0f0f0' },
+  scoreCardLabel: { fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
 
-  label: {
-    color: '#666',
-  },
+  ringWrap: { width: 72, height: 72, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  ringScore: { fontSize: 22, fontWeight: '800', color: '#111' },
 
-  value: {
-    fontWeight: '600',
-    // color: '#007AFF',
-  },
+  nextActionDate: { fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 2 },
+  nextActionLabel: { fontSize: 13, color: '#666' },
 
-  dealTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
+  // Score breakdown
+  scoreBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 9 },
+  scoreBarLabel: { width: 80, fontSize: 13, color: '#555' },
+  scoreBarTrack: {
+    flex: 1, height: 6, backgroundColor: '#f0f0f0',
+    borderRadius: 3, overflow: 'hidden', marginHorizontal: 8,
   },
+  scoreBarFill: { height: '100%', borderRadius: 3 },
+  scoreBarValue: { width: 26, fontSize: 12, fontWeight: '700', color: '#555', textAlign: 'right' },
 
-  valueText: {
-    marginTop: 8,
+  // Info rows
+  infoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f5f5f5',
   },
+  infoLabel: { fontSize: 13, color: '#888' },
+  infoValue: { fontSize: 13, fontWeight: '600', color: '#111', maxWidth: '60%', textAlign: 'right' },
 
-  bold: {
-    fontWeight: '700',
-  },
+  // Call history
+  callHistoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
 
-  progressBar: {
-    height: 6,
-    backgroundColor: '#eee',
-    borderRadius: 10,
-    marginTop: 10,
-    overflow: 'hidden',
+  filterRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  filterPill: {
+    flex: 1, alignItems: 'center', paddingVertical: 7,
+    borderRadius: 10, borderWidth: 1.5, borderColor: '#eee', backgroundColor: '#fafafa',
   },
+  filterPillCount: { fontSize: 14, fontWeight: '800' },
+  filterPillLabel: { fontSize: 10, color: '#aaa', marginTop: 1, fontWeight: '600' },
 
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#FF9800',
+  logRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#f5f5f5',
   },
+  logIconWrap: {
+    width: 34, height: 34, borderRadius: 9,
+    justifyContent: 'center', alignItems: 'center', marginRight: 10,
+  },
+  logMeta: { flex: 1 },
+  logType: { fontSize: 12, fontWeight: '700' },
+  logDate: { fontSize: 11, color: '#aaa', marginTop: 2 },
+  logRight: { alignItems: 'flex-end', minWidth: 56 },
+  logDur: { fontSize: 12, fontWeight: '600', color: '#333' },
+  durBar: {
+    height: 3, width: 44, backgroundColor: '#f0f0f0',
+    borderRadius: 2, marginTop: 4, overflow: 'hidden',
+  },
+  durFill: { height: '100%', borderRadius: 2 },
 
-  probText: {
-    fontSize: 12,
-    marginTop: 4,
-    color: '#666',
-  },
+  emptyWrap: { alignItems: 'center', paddingVertical: 24 },
+  emptyText: { fontSize: 14, color: '#ccc', marginTop: 8 },
 
-  timelineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f1f1',
-  },
-
-  iconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-
-  timelineTitle: {
-    fontWeight: '600',
-  },
-
-  timelineSub: {
-    fontSize: 12,
-    color: '#666',
-  },
-
-  timelineDate: {
-    fontSize: 12,
-    color: '#666',
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAF2FF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-
-  editText: {
-    marginLeft: 6,
-    color: '#007AFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
+  emptyTab: { alignItems: 'center', marginTop: 60 },
+  emptyTabText: { fontSize: 15, color: '#ccc', marginTop: 10 },
 });
 
 export default ContactDetailScreen;

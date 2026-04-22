@@ -151,7 +151,6 @@ export default function QuotationDetailsScreen() {
 
   const handleEdit = () => {
     if (!quotation) return;
-
     try {
       dispatch(setSelectedLead(quotation.leadId));
       const normalizedProducts = quotation.products.map((p: any) => ({

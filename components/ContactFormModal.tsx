@@ -5,7 +5,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    ScrollView,
     StyleSheet,
 } from "react-native";
 import { Controller, useForm } from "react-hook-form";
@@ -48,7 +47,6 @@ export default function ContactFormModal({
     });
 
     const [showStagePicker, setShowStagePicker] = useState(false);
-    const stage = watch("stage");
     const dispatch = useDispatch<any>();
 
     // RESET ON OPEN (ADD + EDIT)
@@ -70,16 +68,20 @@ export default function ContactFormModal({
     }, [visible, defaultValues]);
 
     const onSubmit = (data: any) => {
-        if (!data.email) data.email = "NA";
+        try {
+            if (!data.email) data.email = "NA";
 
-        if (mode === "add") {
-            dispatch(addLead(data));
-        } else {
-            console.log("Updating contact with data:", data);
-            dispatch(editLead(data));
+            if (mode === "add") {
+                dispatch(addLead(data));
+            } else {
+                console.log("Updating contact with data:", data);
+                dispatch(editLead(data));
+            }
+            onClose();
+            reset();
+        } catch (err) {
+            console.error("Error saving contact:", err);
         }
-        onClose();
-        reset();
     };
 
     useEffect(() => {

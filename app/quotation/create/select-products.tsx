@@ -18,18 +18,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { setSelectedProducts } from '@/store/slices/quotationBuilderSlice';
 import { addProduct } from '@/store/slices/productsSlice';
 import { addCategory } from '@/store/slices/categoriesSlice';
-import { 
-  ArrowLeft, 
-  Package, 
-  Check, 
-  Search, 
-  Plus, 
-  X, 
-  IndianRupee, 
+import {
+  ArrowLeft,
+  Package,
+  Check,
+  Search,
+  Plus,
+  X,
+  IndianRupee,
   ChevronDown,
   Grid3x3 as Grid3X3
 } from 'lucide-react-native';
-import { setCurrentStep } from '@/store/slices/quotationBuilderSlice';
+// import { setCurrentStep } from '@/store/slices/quotationBuilderSlice';
 import { handleBackPress } from '@/utils/navigation';
 
 export default function SelectProductsScreen() {
@@ -37,7 +37,7 @@ export default function SelectProductsScreen() {
   const { categories } = useSelector((state: RootState) => state.categories);
   const { selectedProducts } = useSelector((state: RootState) => state.quotationBuilder);
   const dispatch = useDispatch<any>();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -59,18 +59,18 @@ export default function SelectProductsScreen() {
   const params = useLocalSearchParams();
   const editMode = params.editMode === 'true';
   const prefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
-  
+
   const hasPrefilled = useRef(false);
 
-  useEffect(() => {
-    dispatch(setCurrentStep('select-products'));
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(setCurrentStep('select-products'));
+  // }, [dispatch]);
 
   useEffect(() => {
     // Pre-fill products if in edit mode (run only once)
     if (editMode && prefillData && prefillData.products && !hasPrefilled.current) {
       const prefillProducts = prefillData.products.map((product: any) => ({
-        productId: product.productId,
+        productId: Number(product.productId),
         unitPrice: product.unitPrice,
         length: product.length,
         width: product.width,
@@ -93,29 +93,31 @@ export default function SelectProductsScreen() {
     getCategoryNames(product.category_id)?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleProduct = (productId: string) => {
+  const toggleProduct = (productId: number) => {
     const isSelected = selectedProducts.some(p => p.productId === productId);
     let updatedProducts;
-    
+
     if (isSelected) {
-      updatedProducts = selectedProducts.filter(p => p.productId !== productId);
+      updatedProducts = selectedProducts.filter(p => p.productId !== Number(productId));
     } else {
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        updatedProducts = [...selectedProducts, {
-          productId: productId,
-          unitPrice: product.unit_price,
-          length: 1,
-          width: 1,
-          quantity: 1,
-          unit: 'feet' as 'feet' | 'inches',
-          totalPrice: product.unit_price,
-        }];
-      } else {
-        return;
-      }
+      const product = products.find(p => Number(p.id) === Number(productId));
+      if (!product) return;
+
+      updatedProducts = [...selectedProducts, {
+        productId: Number(productId),
+        unitPrice: product.unit_price,
+        length: 1,
+        width: 1,
+        quantity: 1,
+        unit: 'feet' as 'feet' | 'inches',
+        totalPrice: product.unit_price,
+        product_name: product.product_name,
+        categoryId: String(product.category_id),
+        categoryName:
+          categories.find(c => c.id === product.category_id)?.category_name || '',
+      }];
     }
-    
+
     dispatch(setSelectedProducts(updatedProducts));
   };
 
@@ -125,7 +127,7 @@ export default function SelectProductsScreen() {
       return;
     }
 
-    if(!newProduct.description){
+    if (!newProduct.description) {
       newProduct.description = 'NA'
     }
 
@@ -198,30 +200,30 @@ export default function SelectProductsScreen() {
 
   const renderProductItem = ({ item }: { item: any }) => {
     const isSelected = selectedProducts.some(p => p.productId === item.id);
-    
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.productCard, isSelected && styles.selectedCard]}
         onPress={() => {
-  const existing = selectedProducts.find(p => p.productId === item.id);
+          const existing = selectedProducts.find(p => p.productId === item.id);
 
-if (existing) {
-  setActiveProduct({
-    ...existing,
-    totalPrice: Number(existing.totalPrice) || 0
-  });
-  } else {
-    setActiveProduct({
-      productId: item.id,
-      unitPrice: item.unit_price,
-      quantity: 1,
-      length: 1,
-      width: 1,
-      unit: 'feet',
-      totalPrice: item.unit_price,
-    });
-  }
-}}
+          if (existing) {
+            setActiveProduct({
+              ...existing,
+              totalPrice: Number(existing.totalPrice) || 0
+            });
+          } else {
+            setActiveProduct({
+              productId: item.id,
+              unitPrice: item.unit_price,
+              quantity: 1,
+              length: 1,
+              width: 1,
+              unit: 'feet',
+              totalPrice: item.unit_price,
+            });
+          }
+        }}
 
 
       >
@@ -327,7 +329,7 @@ if (existing) {
           </View>
 
           {/* Scrollable form content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -382,7 +384,7 @@ if (existing) {
                 <ChevronDown size={20} color="#64748B" />
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.addCategoryButton}
                 onPress={() => {
                   setShowAddModal(false);
@@ -428,8 +430,8 @@ if (existing) {
                 {categories.filter(cat =>
                   cat.category_name.toLowerCase().includes(categorySearch.toLowerCase())
                 ).length === 0 && (
-                  <Text style={{ padding: 16, color: '#64748B' }}>No categories found</Text>
-                )}
+                    <Text style={{ padding: 16, color: '#64748B' }}>No categories found</Text>
+                  )}
               </View>
             )}
 
@@ -491,7 +493,7 @@ if (existing) {
           </View>
 
           {/* Scrollable form content */}
-          <ScrollView 
+          <ScrollView
             style={styles.formScrollView}
             contentContainerStyle={styles.formContent}
             showsVerticalScrollIndicator={false}
@@ -547,68 +549,68 @@ if (existing) {
       </Modal>
 
       {activeProduct && (
-  <View style={styles.configSheet}>
-    <Text style={styles.sheetTitle}>Configure Product</Text>
+        <View style={styles.configSheet}>
+          <Text style={styles.sheetTitle}>Configure Product</Text>
 
-    <TextInput
-      value={String(activeProduct.quantity)}
-      keyboardType="number-pad"
-      onChangeText={(v) =>
-        setActiveProduct((p: { unitPrice: number; length: number; width: number; }) => ({
-          ...p,
-          quantity: Number(v) || 1,
-          totalPrice: p.unitPrice * p.length * p.width * (Number(v) || 1)
-        }))
-      }
-    />
+          <TextInput
+            value={String(activeProduct.quantity)}
+            keyboardType="number-pad"
+            onChangeText={(v) =>
+              setActiveProduct((p: { unitPrice: number; length: number; width: number; }) => ({
+                ...p,
+                quantity: Number(v) || 1,
+                totalPrice: p.unitPrice * p.length * p.width * (Number(v) || 1)
+              }))
+            }
+          />
 
-    <TextInput
-      value={String(activeProduct.length)}
-      keyboardType="decimal-pad"
-      onChangeText={(v) =>
-        setActiveProduct((p: { unitPrice: number; width: number; quantity: number; }) => ({
-          ...p,
-          length: Number(v) || 0,
-          totalPrice: p.unitPrice * (Number(v) || 0) * p.width * p.quantity
-        }))
-      }
-    />
+          <TextInput
+            value={String(activeProduct.length)}
+            keyboardType="decimal-pad"
+            onChangeText={(v) =>
+              setActiveProduct((p: { unitPrice: number; width: number; quantity: number; }) => ({
+                ...p,
+                length: Number(v) || 0,
+                totalPrice: p.unitPrice * (Number(v) || 0) * p.width * p.quantity
+              }))
+            }
+          />
 
-    <TextInput
-      value={String(activeProduct.width)}
-      keyboardType="decimal-pad"
-      onChangeText={(v) =>
-        setActiveProduct((p: { unitPrice: number; length: number; quantity: number; }) => ({
-          ...p,
-          width: Number(v) || 0,
-          totalPrice: p.unitPrice * p.length * (Number(v) || 0) * p.quantity
-        }))
-      }
-    />
+          <TextInput
+            value={String(activeProduct.width)}
+            keyboardType="decimal-pad"
+            onChangeText={(v) =>
+              setActiveProduct((p: { unitPrice: number; length: number; quantity: number; }) => ({
+                ...p,
+                width: Number(v) || 0,
+                totalPrice: p.unitPrice * p.length * (Number(v) || 0) * p.quantity
+              }))
+            }
+          />
 
-    <Text style={{ marginVertical: 10 }}>
-      Total: ₹{Number(activeProduct.totalPrice || 0).toFixed(2)}
-    </Text>
+          <Text style={{ marginVertical: 10 }}>
+            Total: ₹{Number(activeProduct.totalPrice || 0).toFixed(2)}
+          </Text>
 
-    <TouchableOpacity
-      onPress={() => {
-        dispatch(
-  setSelectedProducts(
-    selectedProducts.some(p => p.productId === activeProduct.productId)
-      ? selectedProducts.map(p =>
-          p.productId === activeProduct.productId ? activeProduct : p
-        )
-      : [...selectedProducts, activeProduct]
-  )
-);
-setActiveProduct(null);
+          <TouchableOpacity
+            onPress={() => {
+              dispatch(
+                setSelectedProducts(
+                  selectedProducts.some(p => p.productId === activeProduct.productId)
+                    ? selectedProducts.map(p =>
+                      p.productId === activeProduct.productId ? activeProduct : p
+                    )
+                    : [...selectedProducts, activeProduct]
+                )
+              );
+              setActiveProduct(null);
 
-      }}
-    >
-      <Text>Add Item</Text>
-    </TouchableOpacity>
-  </View>
-)}
+            }}
+          >
+            <Text>Add Item</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
     </View>
   );
@@ -937,21 +939,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   configSheet: {
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  backgroundColor: '#fff',
-  padding: 16,
-  borderTopLeftRadius: 16,
-  borderTopRightRadius: 16,
-  borderWidth: 1,
-  borderColor: '#E2E8F0',
-},
-sheetTitle: {
-  fontSize: 16,
-  fontWeight: '700',
-  marginBottom: 12,
-},
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
 
 });

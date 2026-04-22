@@ -13,8 +13,6 @@ import {
   Modal,
   Platform,
   ScrollView,
-  Animated,
-  KeyboardAvoidingView
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
@@ -40,7 +38,18 @@ export default function AddItemScreen() {
   // const [showMainCategoryDropdown, setShowMainCategoryDropdown] = useState(false);
   const [showMainCategoryDropdown, setShowMainCategoryDropdown] = useState(false);
   const [showModalCategoryDropdown, setShowModalCategoryDropdown] = useState(false);
-
+  const params = useLocalSearchParams();
+  const isEditMode = params.editMode === 'true';
+  const editItem = useMemo(() => {
+    if (params.itemData) {
+      try {
+        return JSON.parse(params.itemData as string);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, [params.itemData]);
 
   const [productName, setProductName] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -64,20 +73,7 @@ export default function AddItemScreen() {
 
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
 
-  const params = useLocalSearchParams();
-
-  const isEditMode = params.editMode === 'true';
   const editIndex = params.itemIndex ? Number(params.itemIndex) : null;
-  const editItem = useMemo(() => {
-    if (params.itemData) {
-      try {
-        return JSON.parse(params.itemData as string);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }, [params.itemData]);
 
   useEffect(() => {
     if (!isEditMode || !editItem) return;
@@ -103,8 +99,8 @@ export default function AddItemScreen() {
 
     setUnitPrice(Number(editItem.unitPrice));
     setQuantity(Number(editItem.quantity));
-    setLengthVal(editItem.length);
-    setWidthVal(editItem.width);
+    setLengthVal(String(editItem.length ?? "1"));
+    setWidthVal(String(editItem.width ?? "1")) ;
     setUnit(editItem.unit);
 
     setShowSuggestions(false);
@@ -132,20 +128,32 @@ export default function AddItemScreen() {
     });
   }, [productName, selectedProduct, isNewProduct, products, categoryId]);
 
-  const total = quantity * parseFloat(lengthVal) * parseFloat(widthVal) * unitPrice;
+  // const total = quantity * parseFloat(lengthVal) * parseFloat(widthVal)  * unitPrice;
+  const lengthNum = parseFloat(lengthVal) || 0;
+  const widthNum = parseFloat(widthVal) || 0;
+
+  const area =
+    unit === 'inches'
+      ? (lengthNum * widthNum) / 144
+      : lengthNum * widthNum;
+
+  const total = quantity * area * unitPrice;
+  //  {quantity} × {parseFloat(lengthVal) || 0} × {parseFloat(widthVal) || 0} {unit === 'inches' ? '÷ 144 ' : ''} × ₹{unitPrice.toFixed(2)}
 
   useEffect(() => {
-    if (selectedProduct) {
+    if (selectedProduct && !isEditMode) {
       setUnitPrice(Number(selectedProduct.unit_price || 0));
       setQuantity(1);
       setLengthVal("1");
       setWidthVal("1");
+
       if (selectedProduct.category_id) {
         setCategoryId(String(selectedProduct.category_id));
       }
+
       setShowMainCategoryDropdown(false);
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, isEditMode]);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => {
@@ -671,7 +679,8 @@ export default function AddItemScreen() {
                       <Text style={styles.totalAmount}>₹{total.toFixed(2)}</Text>
                     </View>
                     <Text style={styles.calculation}>
-                      {quantity} × {parseFloat(lengthVal) || 0} × {parseFloat(widthVal) || 0} × ₹{unitPrice.toFixed(2)}
+                      {/* {quantity} × {parseFloat(lengthVal) || 0} × {parseFloat(widthVal) || 0} × ₹{unitPrice.toFixed(2)} */}
+                      {quantity} × {parseFloat(lengthVal) || 0} × {parseFloat(widthVal) || 0} {unit === 'inches' ? '÷ 144 ' : ''} × ₹{unitPrice.toFixed(2)}
                     </Text>
                   </View>
 

@@ -1,5 +1,5 @@
 export interface ILead {
-    id: string;
+    id: number;
     full_name: string;
     company_name?: string;
     job_title?: string;

@@ -24,6 +24,7 @@ import { STAGES } from '@/constants/constant';
 import { router } from 'expo-router';
 import { ILead } from '@/interface/leads';
 import ContactFormModal from '@/components/ContactFormModal';
+import * as Notifications from 'expo-notifications';
 
 export default function LeadsScreen() {
   const dispatch = useDispatch<any>();
@@ -101,7 +102,17 @@ export default function LeadsScreen() {
     }
   };
 
-  useEffect(() => { fetchLogs(); }, []);
+  const requestPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Permission not granted!');
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+    requestPermissions();
+  }, []);
 
   return (
     <View style={styles.container}>

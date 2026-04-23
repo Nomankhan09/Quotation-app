@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "notification": {
-      "icon": "./assets/images/decoliving_notification_icon.png",
+      "icon": "./assets/images/notification_icon.png",
       "color": "#007AFF"
     },
     "ios": {

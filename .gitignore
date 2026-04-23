@@ -9,14 +9,22 @@ expo-env.d.ts
 node_modules/
 
 # Build folders
-android/
+android/build/
+android/app/build/
+android/.cxx/
+android/.gradle/
+android/app/.cxx
+android/gradle.properties
+# android/
 ios/build/
 bin/
 build/
 
 # Expo files
 .expo/*
+.expo-shared/
 dist/
+web-build/
 
 # Android specific
 *.jks

@@ -23,8 +23,11 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import CallLogs from 'react-native-call-log';
 import { ICallLog } from '@/interface/callLogs';
-import TaskBottomSheet from '@/components/Task';
 import LeadFollowUps from './LeadFollowUps';
+import LeadNotes from './LeadNotes';
+import LeadActivity from './LeadActivity';
+import LeadTasks from './LeadTask';
+import { ILead } from '@/interface/leads';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
@@ -139,6 +142,19 @@ const ContactDetailScreen = () => {
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
   };
 
+  // google meet
+  const openGoogleMeet = async () => {
+    const url = 'https://meet.google.com/';
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      console.log('Cannot open Meet');
+    }
+  };
+
   // ─── Actions ────────────────────────────────────────────────────────────────
 
   const actions = [
@@ -156,15 +172,15 @@ const ContactDetailScreen = () => {
     },
     {
       label: 'Meet', icon: 'calendar', bg: '#EDE7F6', text: '#5E35B1',
-      onPress: () => console.log('Open Meet'),
+      onPress: openGoogleMeet
     },
   ];
 
   // ─── Lead Score ─────────────────────────────────────────────────────────────
 
   const leadScore = 82; // Replace with contact.lead_score when available
-  const nextAction = contact.next_action || 'Call';
-  const nextActionDate = contact.next_action_date || 'Apr 16';
+  // const nextAction = contact.next_action || 'Call';
+  // const nextActionDate = contact.next_action_date || 'Apr 16';
 
   // Score ring
   const circumference = 2 * Math.PI * 28;
@@ -258,6 +274,12 @@ const ContactDetailScreen = () => {
         ))}
       </View>
 
+      {/* Additional notes */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Additional Notes</Text>
+        <Text>{contact.notes}</Text>
+      </View>
+
       {/* Call History (inline) */}
       <View style={styles.card}>
         <View style={styles.callHistoryHeader}>
@@ -334,11 +356,10 @@ const ContactDetailScreen = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Overview': return renderOverview();
-      // case 'Follow-ups': return renderEmptyTab('follow-ups');
       case 'Follow-ups': return <LeadFollowUps lead={contact} />;
-      case 'Notes': return renderEmptyTab('notes');
-      case 'Activity': return renderEmptyTab('activity');
-      case 'Tasks': return renderEmptyTab('tasks');
+      case 'Notes': return <LeadNotes lead={contact} />;
+      case 'Activity': return <LeadActivity lead={contact} />;
+      case 'Tasks': return <LeadTasks lead={{ ...contact, id: Number(contact.id) }} />;
     }
   };
 
@@ -372,9 +393,9 @@ const ContactDetailScreen = () => {
               <Text style={[styles.badgeText, { color: '#ef4444' }]}>Hot</Text>
             </View> */}
           </View>
-          {contact?.company &&
+          {contact?.company_name &&
             <Text style={styles.heroSub}>
-              {contact.title}{contact.company ? ` · ${contact.company}` : ''}
+              {contact.job_title}{contact.company_name ? ` · ${contact.company_name}` : ''}
             </Text>
           }
         </View>
@@ -401,12 +422,11 @@ const ContactDetailScreen = () => {
       </View>
 
       {/* Tab content */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+      <View
+        style={{ flex: 1 }}
       >
         {renderTabContent()}
-      </ScrollView>
+      </View>
 
       {/* Edit Modal */}
       <ContactFormModal
@@ -417,13 +437,7 @@ const ContactDetailScreen = () => {
         onClose={() => setShowEditModal(false)}
       />
 
-      {/* Task Sheet */}
-      <TaskBottomSheet
-        open={showTaskSheet}
-        onClose={() => setShowTaskSheet(false)}
-        contact={contact}
-        onSave={(data) => console.log('Saved:', data)}
-      />
+
     </SafeAreaView>
   );
 };
@@ -576,7 +590,7 @@ const styles = StyleSheet.create({
   },
   durFill: { height: '100%', borderRadius: 2 },
 
-  emptyWrap: { alignItems: 'center', paddingVertical: 24 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 20 },
   emptyText: { fontSize: 14, color: '#ccc', marginTop: 8 },
 
   emptyTab: { alignItems: 'center', marginTop: 60 },

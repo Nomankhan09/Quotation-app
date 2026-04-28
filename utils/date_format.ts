@@ -45,3 +45,18 @@ export const parseDate = (str: string) => {
         Number(minutes)
     );
 };
+
+export const formatToMySQL = (dateStr: string) => {
+    if (!dateStr) return null;
+
+    const [datePart, timePart, modifier] = dateStr.split(' ');
+    const [month, day, year] = datePart.split('/');
+    let [hours, minutes] = timePart.split(':');
+
+    let h = parseInt(hours);
+
+    if (modifier === 'PM' && h !== 12) h += 12;
+    if (modifier === 'AM' && h === 12) h = 0;
+
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${String(h).padStart(2, '0')}:${minutes}:00`;
+};

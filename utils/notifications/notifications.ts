@@ -6,7 +6,7 @@ const getEmoji = (type: IFollowUpType) => {
         case 'Call': return '📞';
         case 'Email': return '📧';
         case 'Meeting': return '👥';
-        case 'Task': return '📌';
+        // case 'Task': return '📌';
     }
 };
 

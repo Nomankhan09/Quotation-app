@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDispatch } from 'react-redux';
@@ -14,57 +14,73 @@ interface StartupScreenProps {
 
 export default function StartupScreen({ onComplete }: StartupScreenProps) {
   const dispatch = useDispatch<AppDispatch>();
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.9);
-  const slideUpAnim = new Animated.Value(20);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const slideUpAnim = useRef(new Animated.Value(20)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
+ 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        await Promise.all([
+        const tasks = [
           dispatch(loadAllLeads()),
           dispatch(loadAllProducts()),
           dispatch(loadAllCategories()),
-          dispatch(loadAllSpecifications())
-        ]);
-        
-        // Add a small delay to ensure smooth transition
-        setTimeout(() => {
-          onComplete();
-        }, 1500);
+          dispatch(loadAllSpecifications()),
+        ];
+
+        let completed = 0;
+        const total = tasks.length;
+
+        tasks.forEach(promise => {
+          promise.finally(() => {
+            completed++;
+
+            const value = completed / total;
+
+            Animated.timing(progressAnim, {
+              toValue: value,
+              duration: 300,
+              useNativeDriver: false,
+            }).start();
+
+            if (completed === total) {
+              onComplete();
+            }
+          });
+        });
+
+        await Promise.all(tasks);
+
       } catch (error) {
         console.error('Error initializing app:', error);
         onComplete();
       }
     };
 
-    // Enhanced animation sequence
+    // Start animation immediately
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 800,
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 120,
-        friction: 10,
         useNativeDriver: true,
       }),
       Animated.timing(slideUpAnim, {
         toValue: 0,
-        duration: 1000,
+        duration: 800,
         useNativeDriver: true,
       })
     ]).start();
 
-    // Start loading data after animation begins
-    const timer = setTimeout(() => {
-      initializeApp();
-    }, 1500);
+    // Start loading immediately (NO timeout)
+    initializeApp();
 
-    return () => clearTimeout(timer);
-  }, [dispatch]);
+  }, []);
 
   return (
     <LinearGradient
@@ -87,7 +103,7 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
         <View style={styles.logoContainer}>
           <View style={styles.logoBackground}>
             <Text style={styles.logoText}>
-              <Image source={{ uri: 'https://www.decolivings.com/img/DecoLivings-Website-Logo.jpg' }} style={styles.logoImage} resizeMode="contain"/>
+              <Image source={{ uri: 'https://www.decolivings.com/img/DecoLivings-Website-Logo.jpg' }} style={styles.logoImage} resizeMode="contain" />
             </Text>
           </View>
           <View style={styles.logoGlow} />
@@ -100,7 +116,15 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
         {/* Enhanced Loading Indicator */}
         <View style={styles.loadingContainer}>
           <View style={styles.loadingBar}>
-            <Animated.View style={styles.loadingProgress} />
+            <Animated.View style={[
+              styles.loadingProgress,
+              {
+                width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%']
+                })
+              }
+            ]} />
           </View>
           <Text style={styles.loadingText}>Preparing your experience</Text>
         </View>
@@ -186,7 +210,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#2563EB',
     borderRadius: 2,
-    width: '35%',
   },
   loadingText: {
     fontSize: 14,

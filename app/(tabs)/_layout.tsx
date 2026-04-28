@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, Package, Grid3x3 as Grid3X3, Settings, FileText } from 'lucide-react-native';
+import { Home, Users, Package, Grid3x3 as Grid3X3, Settings, FileText, SquareCheck, Ellipsis } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -40,7 +40,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="products"
         options={{
           title: 'Products',
@@ -57,7 +57,7 @@ export default function TabLayout() {
             <Grid3X3 size={size} color={color} />
           ),
         }}
-      />
+      /> */}
       <Tabs.Screen
         name="quotations"
         options={{
@@ -67,15 +67,27 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
-        name="settings"
+        name="tasks"
         options={{
-          title: 'Settings',
+          title: 'tasks',
           tabBarIcon: ({ size, color }) => (
-            <Settings size={size} color={color} />
+            <SquareCheck size={size} color={color} />
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="more_features"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ size, color }) => (
+            <Ellipsis size={size} color={color} />
+          ),
+        }}
+      />
+
     </Tabs>
   );
 }

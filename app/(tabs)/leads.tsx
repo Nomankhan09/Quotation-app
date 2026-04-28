@@ -37,7 +37,7 @@ export default function LeadsScreen() {
 
   const handlePress = (contact: any) => {
     router.push({
-      pathname: '/ContactDetailScreen',
+      pathname: '/contact-details',
       params: { contact: JSON.stringify(contact) },
     });
   };
@@ -107,6 +107,8 @@ export default function LeadsScreen() {
     if (status !== 'granted') {
       console.log('Permission not granted!');
     }
+    const settings = await Notifications.getPermissionsAsync();
+    // console.log(settings);
   };
 
   useEffect(() => {

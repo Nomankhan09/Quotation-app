@@ -104,8 +104,6 @@ export default function CreateQuotationCompactScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
-  console.log('selectedTerms',selectedTerms);
-
   // Discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(discount.type);
   const [discountValue, setDiscountValue] = useState(discount.value.toString());
@@ -376,8 +374,6 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
-  console.log('selectedTerms',selectedTerms);
-  console.log('terms -> ',terms);
   const handleSaveQuotation = async () => {
     try {
       setSaving(true);

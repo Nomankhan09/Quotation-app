@@ -233,7 +233,7 @@ export default function CreateQuotationIndex() {
 
     router.push({
       pathname: '/quotation/create/html-preview',
-      params: { html },
+      params: { html, leadName: selectedClient.full_name },
     });
   };
 

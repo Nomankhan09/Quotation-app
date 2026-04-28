@@ -9,6 +9,8 @@ interface User {
   phone: string;
   company_name?: string;
   company_address?: string;
+  company_type?: string;
+  pdf_file_name_format?: string;
   zip_code?: string;
   company_phone?: string;
   website?: string;
@@ -42,7 +44,7 @@ export const updateCompanyInformation = createAsyncThunk(
     try {
       const state = getState() as { auth: AuthState };
       const token = state.auth.token;
-      
+
       if (!token) {
         return rejectWithValue("No authentication token found");
       }
@@ -109,12 +111,12 @@ const authSlice = createSlice({
   },
 });
 
-export const { 
-  loginStart, 
-  loginSuccess, 
-  loginFailure, 
-  logout, 
+export const {
+  loginStart,
+  loginSuccess,
+  loginFailure,
+  logout,
   clearError,
-  updateUser 
+  updateUser
 } = authSlice.actions;
 export default authSlice.reducer;

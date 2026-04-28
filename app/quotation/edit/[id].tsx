@@ -50,6 +50,7 @@ import {
   // setCurrentStep 
 } from '@/store/slices/quotationBuilderSlice';
 import { WebView } from 'react-native-webview';
+import { generateFileName } from '@/utils/quotation';
 
 interface ISpecification {
   id: number;
@@ -143,7 +144,7 @@ export default function QuotationDetailsScreen() {
 
     router.push({
       pathname: '/quotation/create/html-preview',
-      params: { html },
+      params: { html, leadName: lead.full_name },
     });
   };
 
@@ -256,8 +257,23 @@ export default function QuotationDetailsScreen() {
       const customFileName = `${formattedLeadName}_${(user?.company_name || '').split(' ').join('_')}_Quote_${dateStr}_${timestamp}.pdf`;
 
       const tempFile = new File(uri);
-      const newFile = new File(Paths.cache, customFileName);
-      tempFile.copy(newFile);
+
+      const fileName = generateFileName({
+        format: user?.pdf_file_name_format || 'Quotation_{date}',
+        companyName: user?.company_name || '',
+        clientName: lead.full_name || '',
+        companyType: user?.company_type || ''
+      });
+
+      const newFile = new File(Paths.cache, fileName);
+
+      // ✅ property, NOT function
+      if (newFile.exists) {
+        await newFile.delete();
+      }
+
+      // ✅ copy
+      await tempFile.copy(newFile);
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(newFile.uri, {

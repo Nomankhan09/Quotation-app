@@ -11,7 +11,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { logout } from '@/store/slices/authSlice';
-import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mail, Phone, Building } from 'lucide-react-native';
+import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mail, Phone, Building, FileText, FileTextIcon } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { resetBuilder } from '@/store/slices/quotationBuilderSlice';
 
@@ -55,38 +55,50 @@ export default function SettingsScreen() {
     title: string;
     items: SettingsItem[];
   }[] = [
-    {
-      title: 'Account',
-      items: [
-        {
-          icon: User,
-          title: 'Company Information',
-          subtitle: 'Update your company details',
-          hasChevron: true,
-          onPress: () => router.push('/settings/company-information'),
-        },
-        {
-          icon: Shield,
-          title: 'Privacy & Security',
-          subtitle: 'Manage your privacy settings',
-          hasChevron: true,
-          onPress: () => Alert.alert('Info', 'Privacy settings coming soon!'),
-        },
-      ],
-    },
-    {
-      title: 'Support',
-      items: [
-        {
-          icon: HelpCircle,
-          title: 'Help & Support',
-          subtitle: 'Get help or contact us',
-          hasChevron: true,
-          onPress: () => Alert.alert('Support', 'Contact support at support@decolivings.com'),
-        },
-      ],
-    },
-  ];
+      {
+        title: 'Account',
+        items: [
+          {
+            icon: User,
+            title: 'Company Information',
+            subtitle: 'Update your company details',
+            hasChevron: true,
+            onPress: () => router.push('/settings/company-information'),
+          },
+          {
+            icon: Shield,
+            title: 'Privacy & Security',
+            subtitle: 'Manage your privacy settings',
+            hasChevron: true,
+            onPress: () => Alert.alert('Info', 'Privacy settings coming soon!'),
+          },
+        ],
+      },
+      {
+        title: 'Support',
+        items: [
+          {
+            icon: HelpCircle,
+            title: 'Help & Support',
+            subtitle: 'Get help or contact us',
+            hasChevron: true,
+            onPress: () => Alert.alert('Support', 'Contact support at support@decolivings.com'),
+          },
+        ],
+      },
+      {
+        title: 'Quotation',
+        items: [
+          {
+            icon: FileTextIcon,
+            title: 'Quotation File Name',
+            subtitle: 'Customize how your PDF file name is generated',
+            hasChevron: true,
+            onPress: () => router.push('/settings/quotation-file-name'),
+          },
+        ],
+      },
+    ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

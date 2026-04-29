@@ -1,5 +1,5 @@
 // ContactDetailScreen.tsx
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StatusBar,
   Linking,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,11 +25,15 @@ import LeadNotes from './LeadNotes';
 import LeadActivity from './LeadActivity';
 import LeadTasks from './LeadTask';
 import { Lead } from '@/store/slices/leadsSlice';
+import { AppState } from 'react-native';
+import { Modal } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
-type ContactRouteParams = {
-  contact: Lead;
+type CallLogForm = {
+  type: 'INCOMING' | 'OUTGOING' | 'MISSED';
+  duration: string;
 };
 
 // const SCORE_BREAKDOWN = [
@@ -45,7 +50,25 @@ const ContactDetailScreen = () => {
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
   const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
+  const [showCallLogSheet, setShowCallLogSheet] = React.useState<boolean>(false);
   const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
+  const appState = useRef(AppState.currentState);
+
+  // for adding call log
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors }
+  } = useForm<CallLogForm>({
+    defaultValues: {
+      type: 'OUTGOING',
+      duration: '',
+    },
+  });
+  const selectedType = watch('type');
 
   const contact = useSelector((state: RootState) => {
     const contactParam = JSON.parse((route.params as any)?.contact);
@@ -114,12 +137,52 @@ const ContactDetailScreen = () => {
     }
   };
 
+  // call log thing
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextState === 'active'
+      ) {
+        // user came back from call
+        setShowCallLogSheet(true);
+      }
+
+      appState.current = nextState;
+    });
+
+    return () => sub.remove();
+  }, []);
+
+  const handleSaveCallLog = (data: CallLogForm) => {
+    console.log('data', data);
+    // dispatch(addCallLog({
+    //   contact_id: contact.id,
+    //   type: callType,
+    //   duration: Number(duration),
+    //   timestamp: Date.now().toString(),
+    // }));
+
+    setShowCallLogSheet(false);
+  };
+
   // ─── Actions ────────────────────────────────────────────────────────────────
 
   const actions = [
     {
       label: 'Call', icon: 'call', bg: '#D6ECFF', text: '#1E88E5',
-      onPress: () => Linking.openURL(`tel:${contact.phone || ''}`),
+      onPress: async () => {
+        const phone = contact.phone || '';
+        if (!phone) return;
+
+        // Open dialer
+        await Linking.openURL(`tel:${phone}`);
+
+        // After small delay → open bottom sheet
+        setTimeout(() => {
+          setShowCallLogSheet(true);
+        }, 1500);
+      }
     },
     {
       label: 'Email', icon: 'mail', bg: '#DFF7E3', text: '#2E7D32',
@@ -398,6 +461,82 @@ const ContactDetailScreen = () => {
         onClose={() => setShowEditModal(false)}
       />
 
+      {/* Call log modal */}
+      <Modal visible={showCallLogSheet} transparent animationType="slide">
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+
+            <Text style={styles.title}>Log Call</Text>
+
+            {/* Call Type */}
+            <Controller
+              control={control}
+              name="type"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.typeRow}>
+                  {['INCOMING', 'OUTGOING', 'MISSED'].map(type => (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => onChange(type)}
+                      style={[
+                        styles.option,
+                        value === type && styles.activeOption,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          value === type && styles.activeOptionText,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            />
+
+            {/* Duration */}
+            <Controller
+              control={control}
+              name="duration"
+              rules={{ required: 'Duration is required' }}
+              render={({ field: { value, onChange } }) => (
+                <>
+                  <TextInput
+                    placeholder="Duration (seconds)"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={onChange}
+                    style={[
+                      styles.input,
+                      errors.duration && { borderColor: '#ef4444' },
+                    ]}
+                  />
+                  {errors.duration && (
+                    <Text style={styles.errorText}>
+                      {errors.duration.message}
+                    </Text>
+                  )}
+                </>
+              )}
+            />
+
+            {/* Save */}
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSubmit((data) => {
+                handleSaveCallLog(data);
+                reset();
+              })}
+            >
+              <Text style={styles.saveText}>Save Call Log</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
     </SafeAreaView>
   );
@@ -556,6 +695,100 @@ const styles = StyleSheet.create({
 
   emptyTab: { alignItems: 'center', marginTop: 60 },
   emptyTabText: { fontSize: 15, color: '#ccc', marginTop: 10 },
+
+  // call log form
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 30,
+  },
+
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e7eb',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+
+  typeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  option: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+
+  activeOption: {
+    backgroundColor: '#dbeafe',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+
+  optionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+
+  activeOptionText: {
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 8,
+  },
+
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginBottom: 10,
+  },
+
+  saveBtn: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  saveText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });
 
 export default ContactDetailScreen;

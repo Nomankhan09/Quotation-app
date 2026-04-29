@@ -20,7 +20,7 @@ export const fetchQuotations = async (token: string, page: number = 1, search: s
     per_page: '5',
     ...(search && { search })
   });
-  
+
 
   const response = await api.get(`/quotations?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -32,6 +32,29 @@ export const fetchQuotationById = async (id: number, token: string) => {
   const response = await api.get(`/quotations/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  return response.data;
+};
+
+export const fetchQuotationPerLead = async (token: string) => {
+  const response = await api.get(`/quotations/stage`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};
+
+export const updateQuotationStage = async (
+  id: number,
+  stage: string,
+  token: string
+) => {
+  const response = await api.patch(
+    `/quotations/stage/${id}`,
+    { stage },
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
   return response.data;
 };
 

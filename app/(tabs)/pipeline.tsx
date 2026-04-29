@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,11 +8,16 @@ import {
     Dimensions,
     Platform,
     StatusBar,
-    PanResponder,
     Animated,
     Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '@/store';
+import { getQuotationsPerLead, updateQuotationStageThunk } from '@/store/slices/quotationsSlice';
+import { formatDate } from '@/utils/date_format';
+import { useRouter } from 'expo-router';
+import { Lead } from '@/store/slices/leadsSlice';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Stage = 'Proposal' | 'Negotiation' | 'Won';
@@ -25,18 +30,9 @@ interface IDeal {
     probability: number;
     date: string;
     stage: Stage;
+    lead_id?: string;
+    lead: Lead;
 }
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const INITIAL_DEALS: IDeal[] = [
-    { id: '1', customer: 'Rohan Kulkarni', company: 'TechStart', amount: 85000, probability: 55, date: 'May 10', stage: 'Proposal' },
-    { id: '2', customer: 'Nina Patel', company: 'GridSoft', amount: 44000, probability: 60, date: 'Apr 22', stage: 'Proposal' },
-    { id: '3', customer: 'Mihail Popescu', amount: 28000, probability: 30, date: 'May 5', stage: 'Proposal' },
-    { id: '4', customer: 'Priya Sharma', company: 'Nexus Corp', amount: 185000, probability: 75, date: 'Jun 3', stage: 'Negotiation' },
-    { id: '5', customer: 'Kenji Matsuda', company: 'Hayashi Inc', amount: 120000, probability: 80, date: 'Jun 1', stage: 'Negotiation' },
-    { id: '6', customer: 'Sneha Iyer', amount: 62000, probability: 95, date: 'Mar 15', stage: 'Won' },
-    { id: '7', customer: 'Arjun Mehta', company: 'Zenith Labs', amount: 210000, probability: 100, date: 'Apr 5', stage: 'Won' },
-];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -54,9 +50,12 @@ const AVATAR_PALETTE = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#14b8a6', '
 const getAvatarColor = (name: string) => AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
 
 const formatAmount = (n: number) => {
-    if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-    if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
-    return `$${n}`;
+    if (n >= 1_000_000) return `₹${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) {
+        const val = Math.floor(n / 100) / 10; // 👈 key change
+        return `₹${val}K`;
+    }
+    return `₹${n}`;
 };
 
 const totalByStage = (deals: IDeal[], stage: Stage) =>
@@ -126,9 +125,11 @@ const MoveModal = ({
 const DealCard = ({
     deal,
     onLongPress,
+    onPress,
 }: {
     deal: IDeal;
     onLongPress: () => void;
+    onPress: () => void;
 }) => {
     const cfg = STAGE_CONFIG[deal.stage];
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -143,6 +144,7 @@ const DealCard = ({
             onLongPress={onLongPress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
+            onPress={onPress}
             activeOpacity={0.9}
             delayLongPress={300}
         >
@@ -151,9 +153,15 @@ const DealCard = ({
                 <View style={cardStyles.topRow}>
                     <View style={[cardStyles.stagePill, { backgroundColor: cfg.badge }]}>
                         <View style={[cardStyles.pillDot, { backgroundColor: cfg.dot }]} />
-                        <Text style={[cardStyles.pillText, { color: cfg.color }]}>{deal.stage}</Text>
+                        <Text style={[cardStyles.pillText, { color: cfg.color }]}>
+                            {deal.stage}
+                        </Text>
                     </View>
-                    <Text style={cardStyles.date}>{deal.date}</Text>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={cardStyles.date}>{deal.date}</Text>
+                        <Text style={cardStyles.quoteId}>#QUO-{deal.id}</Text>
+                    </View>
                 </View>
 
                 {/* Customer */}
@@ -179,10 +187,10 @@ const DealCard = ({
                 <Text style={cardStyles.amount}>{formatAmount(deal.amount)}</Text>
 
                 {/* Probability bar */}
-                <View style={cardStyles.barTrack}>
+                {/* <View style={cardStyles.barTrack}>
                     <View style={[cardStyles.barFill, { width: `${deal.probability}%` as any, backgroundColor: cfg.color }]} />
                 </View>
-                <Text style={[cardStyles.probText, { color: cfg.color }]}>{deal.probability}% probability</Text>
+                <Text style={[cardStyles.probText, { color: cfg.color }]}>{deal.probability}% probability</Text> */}
             </Animated.View>
         </TouchableOpacity>
     );
@@ -190,9 +198,53 @@ const DealCard = ({
 
 // ─── Pipeline Screen ──────────────────────────────────────────────────────────
 export default function PipelineScreen() {
-    const [deals, setDeals] = useState<IDeal[]>(INITIAL_DEALS);
+    const dispatch = useDispatch<AppDispatch>();
+    const { Proposal, Negotiation, Won } = useSelector(
+        (state: RootState) => state.quotations.groupedQuotations
+    );
+    const loading = useSelector(
+        (state: RootState) => state.quotations.loading
+    );
+    const router = useRouter();
+
+    const deals: IDeal[] = [
+        ...Proposal.map((q: any) => ({
+            id: q.id.toString(),
+            customer: q.lead?.full_name || 'Unknown',
+            company: q.lead?.company_name,
+            amount: Number(q.total_amount || 0),
+            probability: 40,
+            date: formatDate(new Date(q.created_at)),
+            stage: 'Proposal' as Stage,
+            lead: q.lead
+        })),
+        ...Negotiation.map((q: any) => ({
+            id: q.id.toString(),
+            customer: q.lead?.full_name || 'Unknown',
+            company: q.lead?.company_name,
+            amount: Number(q.total_amount || 0),
+            probability: 70,
+            date: formatDate(new Date(q.created_at)),
+            stage: 'Negotiation' as Stage,
+            lead: q.lead
+        })),
+        ...Won.map((q: any) => ({
+            id: q.id.toString(),
+            customer: q.lead?.full_name || 'Unknown',
+            company: q.lead?.company_name,
+            amount: Number(q.total_amount || 0),
+            probability: 100,
+            date: formatDate(new Date(q.created_at)),
+            stage: 'Won' as Stage,
+            lead: q.lead
+        })),
+    ];
     const [moveTarget, setMoveTarget] = useState<IDeal | null>(null);
     const [moveModalVisible, setMoveModalVisible] = useState(false);
+
+    useEffect(() => {
+        dispatch(getQuotationsPerLead());
+    }, [dispatch]);
 
     const totalPipeline = deals
         .filter(d => d.stage !== 'Won')
@@ -200,13 +252,27 @@ export default function PipelineScreen() {
     const wonTotal = totalByStage(deals, 'Won');
 
     const handleMove = (id: string, stage: Stage) => {
-        setDeals(prev => prev.map(d => d.id === id ? { ...d, stage } : d));
+        dispatch(updateQuotationStageThunk({
+            id: Number(id),
+            stage: stage
+        }));
     };
 
     const openMoveModal = (deal: IDeal) => {
         setMoveTarget(deal);
         setMoveModalVisible(true);
     };
+
+    {
+        loading && (
+            <View style={screenStyles.loaderOverlay}>
+                <View style={screenStyles.loaderBox}>
+                    <Ionicons name="sync-outline" size={26} color="#6366f1" />
+                    <Text style={screenStyles.loaderText}>Loading pipeline...</Text>
+                </View>
+            </View>
+        )
+    }
 
     return (
         <View style={screenStyles.container}>
@@ -292,6 +358,12 @@ export default function PipelineScreen() {
                                             key={deal.id}
                                             deal={deal}
                                             onLongPress={() => openMoveModal(deal)}
+                                            onPress={() =>
+                                                router.push({
+                                                    pathname: '/lead/contact-details',
+                                                    params: { contact: JSON.stringify(deal.lead) },
+                                                })
+                                            }
                                         />
                                     ))
                                 )}
@@ -351,7 +423,7 @@ const screenStyles = StyleSheet.create({
         backgroundColor: '#f1f2f8',
         borderRadius: 20,
         padding: 14,
-        maxHeight: '90%',
+        maxHeight: '95%',
     },
     colHeader: {
         flexDirection: 'row', alignItems: 'center',
@@ -372,6 +444,40 @@ const screenStyles = StyleSheet.create({
     },
     emptyText: { fontSize: 14, fontWeight: '600', marginTop: 8 },
     emptyHint: { fontSize: 11, color: '#9ca3af', marginTop: 3 },
+    loaderContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9ff',
+    },
+    loaderText: {
+        marginTop: 10,
+        fontSize: 14,
+        color: '#6b7280',
+        fontWeight: '500',
+    },
+    loaderOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+    },
+
+    loaderBox: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+    },
 });
 
 const cardStyles = StyleSheet.create({
@@ -379,12 +485,19 @@ const cardStyles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 18,
         padding: 15,
+        margin: 2,
         marginBottom: 10,
         shadowColor: '#000',
         shadowOpacity: 0.06,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 3 },
-        elevation: 3,
+        elevation: 2,
+    },
+    quoteId: {
+        fontSize: 10,
+        color: '#9ca3af',
+        fontWeight: '600',
+        marginTop: 2,
     },
     topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     stagePill: {
@@ -414,6 +527,7 @@ const cardStyles = StyleSheet.create({
     },
     barFill: { height: '100%', borderRadius: 3 },
     probText: { fontSize: 11, fontWeight: '600' },
+
 });
 
 const modalStyles = StyleSheet.create({

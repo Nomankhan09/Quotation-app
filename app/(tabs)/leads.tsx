@@ -7,11 +7,11 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  PermissionsAndroid
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import {
+  Lead,
   setSearch,
 } from '@/store/slices/leadsSlice';
 import {
@@ -22,7 +22,6 @@ import { StageBadge } from '@/utils/stageBadge';
 import Avatar from '@/utils/avatar';
 import { STAGES } from '@/constants/constant';
 import { router } from 'expo-router';
-import { ILead } from '@/interface/leads';
 import ContactFormModal from '@/components/ContactFormModal';
 import * as Notifications from 'expo-notifications';
 
@@ -37,13 +36,13 @@ export default function LeadsScreen() {
 
   const handlePress = (contact: any) => {
     router.push({
-      pathname: '/contact-details',
+      pathname: '/lead/contact-details',
       params: { contact: JSON.stringify(contact) },
     });
   };
 
   // Simple local search
-  const filteredLeads = leads.filter((lead: ILead) => {
+  const filteredLeads = leads.filter((lead: Lead) => {
     const searchText = searchQuery.toLowerCase();
 
     const matchesSearch =
@@ -62,7 +61,7 @@ export default function LeadsScreen() {
     dispatch(setSearch(text));
   };
 
-  const renderLeadItem = ({ item }) => (
+  const renderLeadItem = ({ item }: { item: Lead }) => (
     <TouchableOpacity style={styles.leadCard} onPress={() => handlePress(item)}>
       <View style={styles.row}>
         {/* Avatar */}
@@ -85,23 +84,6 @@ export default function LeadsScreen() {
     </TouchableOpacity>
   );
 
-
-  const fetchLogs = async () => {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
-      );
-
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        // console.log('Permission granted');
-      } else {
-        console.log('Permission denied');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const requestPermissions = async () => {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') {
@@ -112,7 +94,6 @@ export default function LeadsScreen() {
   };
 
   useEffect(() => {
-    fetchLogs();
     requestPermissions();
   }, []);
 

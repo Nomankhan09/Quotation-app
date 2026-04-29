@@ -20,9 +20,14 @@ import {
 } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
+import { generateFileName } from '@/utils/quotation';
+import { RootState } from '@/store';
+import { useSelector } from 'react-redux';
 
 export default function HtmlPreview() {
-  const { html } = useLocalSearchParams<{ html: string }>();
+  const { html, leadName } = useLocalSearchParams<{ html: string, leadName: string }>();
+  const { user } = useSelector((state: RootState) => state.auth);
   const [loading, setLoading] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
 
@@ -90,9 +95,9 @@ export default function HtmlPreview() {
     </body>
   </html>
 `;
-// Two separate HTML generators
+  // Two separate HTML generators
 
-const getPreviewHtml = () => `
+  const getPreviewHtml = () => `
   <!DOCTYPE html>
   <html>
     <head>
@@ -128,7 +133,7 @@ const getPreviewHtml = () => `
   </html>
 `;
 
-const getPdfHtml = () => `
+  const getPdfHtml = () => `
   <!DOCTYPE html>
   <html>
     <head>
@@ -171,11 +176,25 @@ const getPdfHtml = () => `
       Alert.alert('Generating PDF', 'Please wait...');
 
       const { uri } = await Print.printToFileAsync({
-         html: getPdfHtml(),
+        html: getPdfHtml(),
       });
 
+      const fileName = generateFileName({
+        format: user?.pdf_file_name_format || 'Quotation_{date}',
+        companyName: user?.company_name || '',
+        clientName: leadName || '',
+        companyType: user?.company_type || ''
+      });
+      const newFile = new File(Paths.document, fileName);
+
+      // copy content into new file
+      const buffer = await fetch(uri).then(res => res.arrayBuffer());
+      const data = new Uint8Array(buffer);
+      await newFile.create({ overwrite: true });
+      await newFile.write(data);
+
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(newFile.uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Download Quotation PDF',
           UTI: 'com.adobe.pdf',
@@ -192,11 +211,27 @@ const getPdfHtml = () => `
   const handleShare = async () => {
     try {
       const { uri } = await Print.printToFileAsync({
-         html: getPdfHtml(),
+        html: getPdfHtml(),
       });
 
+      // File name change
+      const fileName = generateFileName({
+        format: user?.pdf_file_name_format || 'Quotation_{date}',
+        companyName: user?.company_name || '',
+        clientName: leadName || '',
+        companyType: user?.company_type || ''
+      });
+
+      const newFile = new File(Paths.document, fileName);
+
+      // copy content into new file
+      const buffer = await fetch(uri).then(res => res.arrayBuffer());
+      const data = new Uint8Array(buffer);
+      await newFile.create({ overwrite: true });
+      await newFile.write(data);
+
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(newFile.uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Share Quotation',
         });

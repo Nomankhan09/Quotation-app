@@ -7,7 +7,7 @@ import {
     FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { FileText, Grid3x3, Package, Settings, Users } from 'lucide-react-native';
+import { Construction, FileText, Grid3x3, Package, Settings, Users } from 'lucide-react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
@@ -35,9 +35,8 @@ export default function MoreFeaturesScreen() {
         { title: 'Products', subtitle: `${total_products} products`, icon: Package, color: '#059669', bg: '#ecfdf5', screen: '/products' },
         { title: 'Quotations', subtitle: `${total_conversions} quotes`, icon: FileText, color: '#ea580c', bg: '#fff7ed', screen: '/(tabs)/quotations' },
         // { title: 'Leads', subtitle: '5 active', icon: Users, color: '#6d28d9', bg: '#f5f3ff', screen: 'Leads' },
+        { title: 'Specifications', subtitle: 'Product Specs', icon: Construction, color: '#0ea5e9', bg: '#e0f2fe', screen: '/specifications' },
         { title: 'Settings', subtitle: 'Profile', icon: Settings, color: '#6b7280', bg: '#f3f4f6', screen: '/settings' },
-
-        // { title: 'Reports', subtitle: 'Analytics', icon: 'stats-chart-outline', color: '#7c3aed', bg: '#f5f3ff', screen: 'Reports' },
         // { title: 'Calendar', subtitle: '7 events', icon: 'calendar-outline', color: '#dc2626', bg: '#fef2f2', screen: 'Calendar' },
 
         // { title: 'Contracts', subtitle: '5 active', icon: 'document-outline', color: '#047857', bg: '#ecfdf5', screen: 'Contracts' },

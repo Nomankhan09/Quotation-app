@@ -18,6 +18,7 @@ import { router } from 'expo-router';
 import { ChevronLeft, Camera, Building, MapPin, Phone, Globe, Save, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { updateCompanyInformation } from '@/store/slices/authSlice';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 export default function CompanyInformationScreen() {
   const { user, token, updatingCompany } = useSelector((state: RootState) => state.auth);
@@ -30,6 +31,7 @@ export default function CompanyInformationScreen() {
     company_phone: user?.company_phone || '',
     website: user?.website || '',
     company_logo: user?.company_logo || '',
+    company_type: user?.company_type || '',
   });
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
@@ -161,14 +163,17 @@ export default function CompanyInformationScreen() {
   const logoSource = getLogoSource();
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 20}
+    <KeyboardAwareScrollView
+      style={styles.content}
+      contentContainerStyle={styles.scrollContent}
+      enableOnAndroid={true}
+      extraScrollHeight={140}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -178,24 +183,24 @@ export default function CompanyInformationScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        // contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+        keyboardDismissMode="on-drag"
       >
         {/* Logo Upload Section */}
         <View style={styles.logoSection}>
           <View style={styles.logoContainer}>
             {logoSource ? (
               <View style={styles.logoWithRemove}>
-                <Image 
-                  source={logoSource} 
+                <Image
+                  source={logoSource}
                   style={styles.logoImage}
                   resizeMode="cover"
                 />
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.removeLogoButton}
                   onPress={removeLogo}
                 >
@@ -208,7 +213,7 @@ export default function CompanyInformationScreen() {
                 <Text style={styles.logoPlaceholderText}>Company Logo</Text>
               </View>
             )}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.logoUploadButton}
               onPress={handleLogoUpload}
             >
@@ -253,6 +258,22 @@ export default function CompanyInformationScreen() {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+              returnKeyType="next"
+            />
+          </View>
+
+          {/* Bussiness type */}
+          <View style={styles.inputContainer}>
+            <View style={styles.inputLabelRow}>
+              <Building size={16} color="#64748B" />
+              <Text style={styles.inputLabel}>Bussiness Type *</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Interior"
+              value={formData.company_type}
+              onChangeText={(value) => updateField('company_type', value)}
+              placeholderTextColor="#94A3B8"
               returnKeyType="next"
             />
           </View>
@@ -332,7 +353,7 @@ export default function CompanyInformationScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 }
 
@@ -365,7 +386,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 10,
   },
   logoSection: {
     alignItems: 'center',
@@ -471,6 +492,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 20,
+    margin: 5
   },
   inputLabelRow: {
     flexDirection: 'row',
@@ -501,14 +523,14 @@ const styles = StyleSheet.create({
     height: 20,
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    // position: 'absolute',
+    // bottom: 0,
+    // left: 0,
+    // right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 24,
     paddingVertical: 20,
-    paddingBottom: 70,
+    // paddingBottom: 30,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
@@ -533,5 +555,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // dropdown
+  dropdown: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  dropdownText: {
+    fontSize: 16,
+    color: '#1E293B',
+  },
+  saveNewTypeButton: {
+    marginTop: 8,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+
+  saveNewTypeText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

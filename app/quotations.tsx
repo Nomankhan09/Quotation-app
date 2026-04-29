@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -18,15 +18,12 @@ import { router } from "expo-router";
 import {
   Plus,
   User,
-  Calendar,
   IndianRupee,
   Package,
   Search,
-  Eye,
   FileText,
   Clock,
   TrendingUp,
-  Filter,
   ChevronRight,
 } from "lucide-react-native";
 import { resetForNewQuotation } from "@/store/slices/quotationBuilderSlice";
@@ -36,7 +33,6 @@ export default function QuotationsScreen() {
   const { quotations, loading, loadingMore, search, pagination } = useSelector((state: RootState) => state.quotations);
   const { leads } = useSelector((state: RootState) => state.leads);
   const { products } = useSelector((state: RootState) => state.products);
-  
   const [searchQuery, setSearchQuery] = useState(search);
 
   // Debounced search

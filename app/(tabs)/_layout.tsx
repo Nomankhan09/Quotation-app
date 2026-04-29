@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, Package, Grid3x3 as Grid3X3, Settings, FileText, SquareCheck, Ellipsis } from 'lucide-react-native';
+import { Home, Users, FileText, SquareCheck, Ellipsis, Kanban } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -58,12 +58,22 @@ export default function TabLayout() {
           ),
         }}
       /> */}
-      <Tabs.Screen
+      {/* <Tabs.Screen
         name="quotations"
         options={{
           title: 'Quotations',
           tabBarIcon: ({ size, color }) => (
             <FileText size={size} color={color} />
+          ),
+        }}
+      /> */}
+
+      <Tabs.Screen
+        name="pipeline"
+        options={{
+          title: 'Pipeline',
+          tabBarIcon: ({ size, color }) => (
+            <Kanban size={size} color={color} />
           ),
         }}
       />
@@ -87,6 +97,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
 
     </Tabs>
   );

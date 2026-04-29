@@ -8,7 +8,7 @@ export interface IFollowUpPayload {
     date: string;
     contact_id: number;
     status?: string;
-    notification_id?: string;
+    notification_id?: string | null;
 }
 
 export interface IFollowUp {

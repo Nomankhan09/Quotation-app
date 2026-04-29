@@ -1,16 +1,13 @@
 // ContactDetailScreen.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   StatusBar,
   Linking,
   ActivityIndicator,
-  Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,16 +18,18 @@ import ContactFormModal from '@/components/ContactFormModal';
 import { STAGES } from '@/constants/constant';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import CallLogs from 'react-native-call-log';
 import { ICallLog } from '@/interface/callLogs';
 import LeadFollowUps from './LeadFollowUps';
 import LeadNotes from './LeadNotes';
 import LeadActivity from './LeadActivity';
 import LeadTasks from './LeadTask';
-import { ILead } from '@/interface/leads';
+import { Lead } from '@/store/slices/leadsSlice';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
+type ContactRouteParams = {
+  contact: Lead;
+};
 
 // const SCORE_BREAKDOWN = [
 //   { label: 'Engagement', value: 88, color: '#22c55e' },
@@ -44,13 +43,12 @@ const ContactDetailScreen = () => {
   const route = useRoute();
   const [activeTab, setActiveTab] = React.useState<TabKey>('Overview');
   const [showEditModal, setShowEditModal] = React.useState(false);
-  const [showTaskSheet, setShowTaskSheet] = React.useState(false);
   const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
   const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
   const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
 
   const contact = useSelector((state: RootState) => {
-    const contactParam = JSON.parse(route.params?.contact);
+    const contactParam = JSON.parse((route.params as any)?.contact);
     return state.leads.leads.find(l => l?.id?.toString() === contactParam.id?.toString());
   });
 
@@ -90,45 +88,6 @@ const ContactDetailScreen = () => {
       ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     );
   };
-
-  const requestCallLogPermission = async () => {
-    if (Platform.OS !== 'android') return false;
-
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
-      );
-
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  };
-
-  const fetchCallHistory = async () => {
-    setIsCallLogLoading(true);
-    try {
-      if (!contact.phone) return;
-
-      // check permission and ask for it
-      const hasPermission = await requestCallLogPermission();
-
-      if (!hasPermission) {
-        console.log('Call log permission denied');
-        return;
-      }
-
-      const logs = await CallLogs.load(100, { phoneNumbers: contact?.phone });
-      setCallLogs(logs as ICallLog[]);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsCallLogLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchCallHistory(); }, [contact.phone]);
 
   const filteredLogs =
     callFilter === 'ALL' ? callLogs : callLogs.filter(l => l.type === callFilter);
@@ -264,7 +223,7 @@ const ContactDetailScreen = () => {
         {[
           ['Email', contact.email],
           ['Phone', '+91 ' + contact.phone],
-          ['Location', contact.location],
+          ['Location', contact?.location],
           ['Source', contact.source],
         ].map(([label, value], i, arr) => (
           <View key={i} style={[styles.infoRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
@@ -275,10 +234,12 @@ const ContactDetailScreen = () => {
       </View>
 
       {/* Additional notes */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Additional Notes</Text>
-        <Text>{contact.notes}</Text>
-      </View>
+      {contact.notes &&
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Additional Notes</Text>
+          <Text>{contact.notes}</Text>
+        </View>
+      }
 
       {/* Call History (inline) */}
       <View style={styles.card}>

@@ -21,6 +21,17 @@ export const createCategory = async (categoryData: {
     return response.data;
 };
 
+export const updateCategory = async (categoryId: number,categoryData: {
+    category_name: string;
+    description?: string;
+    color: string;
+  }, token: string) => {
+    const response = await api.put(`/categories/${categoryId}`, categoryData, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+};
+
 export const deleteCategory = async (categoryId: string, token: string) => {
   const response = await api.delete(`/categories/${categoryId}`, {
     headers: { Authorization: `Bearer ${token}` },

@@ -10,6 +10,10 @@ export interface Lead {
   company_name: string;
   created_at: string;
   notes?: string;
+  job_title?: string;
+  stage?: string;
+  location?: string;
+  source?: string;
 }
 
 interface LeadsState {

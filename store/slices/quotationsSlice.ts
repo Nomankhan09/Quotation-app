@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { createQuotation, updateQuotation, fetchQuotations } from '@/services/quotationService';
+import { createQuotation, updateQuotation, fetchQuotations, fetchQuotationPerLead, updateQuotationStage } from '@/services/quotationService';
 import { RootState } from '..';
 
 export interface Quotation {
@@ -16,6 +16,11 @@ export interface Quotation {
 
 interface QuotationsState {
   quotations: Quotation[];
+  groupedQuotations: {
+    Proposal: any[];
+    Negotiation: any[];
+    Won: any[];
+  };
   loading: boolean;
   loadingMore: boolean;
   search: string;
@@ -30,6 +35,11 @@ interface QuotationsState {
 
 const initialState: QuotationsState = {
   quotations: [],
+  groupedQuotations: {
+    Proposal: [],
+    Negotiation: [],
+    Won: [],
+  },
   loading: false,
   loadingMore: false,
   search: '',
@@ -81,13 +91,51 @@ export const getQuotations = createAsyncThunk(
       return rejectWithValue("No authentication token found");
     }
     const response = await fetchQuotations(token, page, search);
-    return { quotations: response.quotations ?? [],
-  pagination: response.pagination, loadMore, search };
+    return {
+      quotations: response.quotations ?? [],
+      pagination: response.pagination, loadMore, search
+    };
   }
 );
 
+export const getQuotationsPerLead = createAsyncThunk(
+  "quotations/getQuotationsPerLead",
+  async (_, { getState, rejectWithValue }) => {
+    const state = getState() as RootState;
+    const token = state.auth.token;
+    if (!token) {
+      return rejectWithValue("No authentication token found");
+    }
+    const response = await fetchQuotationPerLead(token);
+    return {
+      proposal: response.data.proposal ?? [],
+      negotiation: response.data.negotiation ?? [],
+      won: response.data.won ?? [],
+    };
+  }
+);
 
+export const updateQuotationStageThunk = createAsyncThunk(
+  "quotations/updateStage",
+  async (
+    { id, stage }: { id: number; stage: string },
+    { getState, rejectWithValue }
+  ) => {
+    const state = getState() as RootState;
+    const token = state.auth.token;
 
+    if (!token) {
+      return rejectWithValue("No authentication token found");
+    }
+
+    try {
+      const response = await updateQuotationStage(id, stage, token);
+      return { id, stage, data: response };
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
 
 const quotationsSlice = createSlice({
   name: 'quotations',
@@ -130,13 +178,13 @@ const quotationsSlice = createSlice({
       .addCase(getQuotations.fulfilled, (state, action) => {
         const { loadMore } = action.meta.arg;
         const responseData = action.payload;
-        
+
         if (loadMore) {
           state.loadingMore = false;
         } else {
           state.loading = false;
         }
-        
+
         if (responseData && responseData.quotations) {
           const formattedQuotations = responseData.quotations.map((q: any) => ({
             id: q.id?.toString(),
@@ -181,35 +229,60 @@ const quotationsSlice = createSlice({
         }
       })
       .addCase(editQuotation.fulfilled, (state, action) => {
-  const q = action.payload;
+        const q = action.payload;
 
-  const updatedQuotation: Quotation = {
-    id: q.id.toString(),
-    quotationNumber: q.quotationNumber,
-    leadId: q.leadId?.toString(),
-    productIds: q.productIds || [],
-    totalAmount: Number(q.totalAmount || 0),
-    status: q.status || 'draft',
-    validUntil: q.validUntil,
-    created_at: q.created_at,
-    notes: q.notes || '',
-  };
+        const updatedQuotation: Quotation = {
+          id: q.id.toString(),
+          quotationNumber: q.quotationNumber,
+          leadId: q.leadId?.toString(),
+          productIds: q.productIds || [],
+          totalAmount: Number(q.totalAmount || 0),
+          status: q.status || 'draft',
+          validUntil: q.validUntil,
+          created_at: q.created_at,
+          notes: q.notes || '',
+        };
 
-  const index = state.quotations.findIndex(
-    item => item.id === updatedQuotation.id
-  );
+        const index = state.quotations.findIndex(
+          item => item.id === updatedQuotation.id
+        );
 
-  if (index !== -1) {
-    state.quotations[index] = updatedQuotation;
-  }
-})
+        if (index !== -1) {
+          state.quotations[index] = updatedQuotation;
+        }
+      })
+      .addCase(getQuotationsPerLead.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getQuotationsPerLead.fulfilled, (state, action) => {
+        state.loading = false;
 
+        state.groupedQuotations = {
+          Proposal: action.payload.proposal,
+          Negotiation: action.payload.negotiation,
+          Won: action.payload.won,
+        };
+      })
+      .addCase(getQuotationsPerLead.rejected, (state) => {
+        state.loading = false;
+      })
+      .addCase(updateQuotationStageThunk.fulfilled, (state, action) => {
+        const { id, stage, data } = action.payload;
 
-      
+        // remove from all groups
+        Object.keys(state.groupedQuotations).forEach((key) => {
+          state.groupedQuotations[key as keyof typeof state.groupedQuotations] =
+            state.groupedQuotations[key as keyof typeof state.groupedQuotations]
+              .filter((q: any) => q.id !== id);
+        });
+
+        // ✅ now safe
+        state.groupedQuotations[
+          stage as keyof typeof state.groupedQuotations
+        ].push(data.quotation);
+      });
   },
 });
-
-
 
 
 export const { addQuotation, updateQuotationStatus, setSearch, clearQuotations } = quotationsSlice.actions;

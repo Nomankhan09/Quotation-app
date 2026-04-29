@@ -16,12 +16,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { INote } from '@/interface/notes';
 import { addNote, editNote, loadNotesByLead, removeNote } from '@/store/slices/notesSlice';
-import { ILead } from '@/interface/leads';
+import { Lead } from '@/store/slices/leadsSlice';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface LeadNotesProps {
-    lead: ILead;
+    lead: Lead;
 }
 
 interface NoteFormValues {
@@ -35,7 +35,6 @@ export default function LeadNotes({ lead }: LeadNotesProps) {
     const { notes, loading } = useSelector((state: RootState) => state.notes);
     const [editingNote, setEditingNote] = useState<INote | null>(null);
 
-
     const {
         control,
         handleSubmit,
@@ -48,7 +47,7 @@ export default function LeadNotes({ lead }: LeadNotesProps) {
 
     // ─── Load notes on mount ──────────────────────────────────────────────────
     useEffect(() => {
-        dispatch(loadNotesByLead(lead.id));
+        dispatch(loadNotesByLead(Number(lead.id)));
     }, [lead.id]);
 
     // ─── Populate form when editing ───────────────────────────────────────────
@@ -66,13 +65,13 @@ export default function LeadNotes({ lead }: LeadNotesProps) {
             await dispatch(
                 editNote({
                     id: String(editingNote.id),
-                    data: { lead_id: lead.id, note: values.notes },
+                    data: { lead_id: Number(lead.id), note: values.notes },
                 })
             );
             setEditingNote(null);
         } else {
             await dispatch(
-                addNote({ lead_id: lead.id, note: values.notes })
+                addNote({ lead_id: Number(lead.id), note: values.notes })
             );
         }
         reset({ notes: '' });
@@ -102,7 +101,7 @@ export default function LeadNotes({ lead }: LeadNotesProps) {
             <Text style={styles.noteText}>{item.note}</Text>
             <View style={styles.noteFooter}>
                 <Text style={styles.noteMeta}>
-                     {formatDate(item.created_at)}
+                    {formatDate(item.created_at)}
                 </Text>
                 <View style={styles.noteActions}>
                     <TouchableOpacity
@@ -196,7 +195,7 @@ export default function LeadNotes({ lead }: LeadNotesProps) {
             ) : (
                 <FlatList
                     data={notes}
-                    keyExtractor={(item) => String(item.id)}
+                    keyExtractor={(item, index) => item.id ? String(item.id) : `temp-${index}`}
                     renderItem={renderNote}
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={

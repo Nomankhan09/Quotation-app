@@ -11,7 +11,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { logout } from '@/store/slices/authSlice';
-import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mail, Phone, Building } from 'lucide-react-native';
+import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mail, Phone, Building, FileText, FileTextIcon } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { resetBuilder } from '@/store/slices/quotationBuilderSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,6 +84,18 @@ export default function SettingsScreen() {
             subtitle: 'Get help or contact us',
             hasChevron: true,
             onPress: () => Alert.alert('Support', 'Contact support at support@decolivings.com'),
+          },
+        ],
+      },
+      {
+        title: 'Quotation',
+        items: [
+          {
+            icon: FileTextIcon,
+            title: 'Quotation File Name',
+            subtitle: 'Customize how your PDF file name is generated',
+            hasChevron: true,
+            onPress: () => router.push('/settings/quotation-file-name'),
           },
         ],
       },

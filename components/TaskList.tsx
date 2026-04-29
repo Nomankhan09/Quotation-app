@@ -44,6 +44,14 @@ export default function TaskList({ loading, tasks, openEdit, toggleComplete, isD
 
     return (
         <View>
+            {isDashboard && (
+                <View style={styles.taskHeader}>
+                    <Text style={styles.taskHeaderTitle}>TODAY'S TASKS</Text>
+                    <TouchableOpacity onPress={navigateTasks}>
+                        <Text style={styles.viewAll}>View All</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
             {loading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="small" color="#6366f1" />
@@ -51,18 +59,10 @@ export default function TaskList({ loading, tasks, openEdit, toggleComplete, isD
             ) : !tasks || tasks?.length === 0 ? (
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyIcon}>📋</Text>
-                    <Text style={styles.emptyText}>No tasks yet</Text>
+                    <Text style={styles.emptyText}>{isDashboard ? "Today no tasks yet" : "No tasks yet" }</Text>
                 </View>
             ) : (
                 <>
-                    {isDashboard && (
-                        <View style={styles.taskHeader}>
-                            <Text style={styles.taskHeaderTitle}>TODAY'S TASKS</Text>
-                            <TouchableOpacity onPress={navigateTasks}>
-                                <Text style={styles.viewAll}>View All</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
                     <View style={styles.card}>
                         {tasks?.map((task: ITask, index: number) => {
                             const overdue = isOverdue(task.due_date) && task.status !== 'completed';

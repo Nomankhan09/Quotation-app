@@ -26,6 +26,7 @@ export interface CompanyInfoRequest {
   company_phone?: string;
   website?: string;
   company_logo?: string;
+  pdf_file_name_format?: string
 }
 
 export const login = async (email: string, password: string): Promise<LoginResponse> => {

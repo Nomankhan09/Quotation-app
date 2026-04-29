@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { fetchCategories, createCategory } from '@/services/categoriesService';
+import { fetchCategories, createCategory, updateCategory } from '@/services/categoriesService';
 import { RootState } from '..';
 
 export interface Category {
@@ -68,6 +68,22 @@ export const addCategory = createAsyncThunk(
   }
 );
 
+export const editCategory = createAsyncThunk(
+  "categories/editCategory",
+  async (categoryData: { id: number, category_name: string; description?: string, color: string }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const token = state.auth.token;
+      if (!token) return rejectWithValue("No authentication token found");
+      const newCategory = await updateCategory(categoryData.id, categoryData, token);
+      return newCategory;
+    } catch (err: any) {
+      console.log('edit cat err: ', err.response);
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 const categoriesSlice = createSlice({
   name: 'categories',
   initialState,
@@ -107,6 +123,21 @@ const categoriesSlice = createSlice({
 
         if (!exists) {
           state.categories.unshift(payload);
+        }
+      })
+      .addCase(editCategory.fulfilled, (state, action) => {
+        const payload = action.payload;
+
+        if (!payload || !payload.id || !payload.category_name) {
+          return;
+        }
+
+        const index = state.categories.findIndex(
+          (category) => category.id === payload.id
+        );
+
+        if (index !== -1) {
+          state.categories[index] = payload; 
         }
       });
   },

@@ -14,13 +14,18 @@ import {
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
-import { addCategory, Category, setCategorySearch } from '@/store/slices/categoriesSlice';
+import { addCategory, Category, editCategory, setCategorySearch } from '@/store/slices/categoriesSlice';
 import { Plus, X, Grid3x3 as Grid3X3 } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function CategoriesScreen() {
   const { categories, search } = useSelector((state: RootState) => state.categories);
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
 
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCategory, setNewCategory] = useState({
     category_name: '',
@@ -46,41 +51,57 @@ export default function CategoriesScreen() {
       return;
     }
 
-    const colors = [
-      '#3B82F6', // Blue
-      '#10B981', // Green
-      '#F59E0B', // Amber
-      '#EF4444', // Red
-      '#8B5CF6', // Purple
-      '#EC4899', // Pink
-      '#14B8A6', // Teal
-    ];
-
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
     try {
-      const res = await dispatch(addCategory({ ...newCategory, color: randomColor })).unwrap();
+      if (isEditMode && editingCategoryId) {
+        const payload = { ...newCategory, id: Number(editingCategoryId) };
 
-      if (res.status === 400) {
-        Alert.alert('Error', res.message);
-        return;
+        const res = await dispatch(
+          editCategory(payload)
+        ).unwrap();
+
+        if (res.status === 400) {
+          Alert.alert('Error', res.message);
+          return;
+        }
+
+        Alert.alert('Success', 'Category updated successfully!');
+      } else {
+        const colors = [
+          '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6',
+        ];
+
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+        const res = await dispatch(
+          addCategory({ ...newCategory, color: randomColor })
+        ).unwrap();
+
+        if (res.status === 400) {
+          Alert.alert('Error', res.message);
+          return;
+        }
+
+        Alert.alert('Success', 'Category added successfully!');
       }
 
+      // reset state
       setNewCategory({
         category_name: '',
         description: '',
         color: '#3B82F6',
       });
 
+      setEditingCategoryId(null);
+      setIsEditMode(false);
       setShowAddModal(false);
-      Alert.alert('Success', 'Category added successfully!');
+
     } catch (err: any) {
-      // ❌ error comes here
-      Alert.alert('Error', err || 'Something went wrong');
+      Alert.alert('Error', err?.message || 'Something went wrong');
     }
   };
 
   const renderCategoryItem = ({ item }: { item: Category }) => (
-    <TouchableOpacity style={styles.categoryCard}>
+    <TouchableOpacity style={styles.categoryCard} onPress={() => handleEditCategory(item)}>
       <View style={[styles.categoryIcon, { backgroundColor: item.color + '20' }]}>
         <Grid3X3 size={20} color={item.color} />
       </View>
@@ -93,17 +114,54 @@ export default function CategoriesScreen() {
     </TouchableOpacity>
   );
 
+  // category open for edit
+  const handleEditCategory = (category: Category) => {
+    setIsEditMode(true);
+    setEditingCategoryId(category.id);
+
+    setNewCategory({
+      category_name: category.category_name,
+      description: category.description,
+      color: category.color,
+    });
+
+    setShowAddModal(true);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setIsEditMode(false);
+    setEditingCategoryId(null);
+
+    setNewCategory({
+      category_name: '',
+      description: '',
+      color: '#3B82F6',
+    });
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Back button */}
       <View style={styles.header}>
+
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => { router.back() }}>
+          <Ionicons name="chevron-back" size={22} color="#007AFF" />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+
+        {/* Center Title */}
         <Text style={styles.title}>Categories</Text>
+
+        {/* Add Button */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
         >
           <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
+
       </View>
 
       {/* Search Bar */}
@@ -144,8 +202,10 @@ export default function CategoriesScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add New Category</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(false)}>
+            <Text style={styles.modalTitle}>
+              {isEditMode ? 'Edit Category' : 'Add New Category'}
+            </Text>
+            <TouchableOpacity onPress={closeModal}>
               <X size={24} color="#64748B" />
             </TouchableOpacity>
           </View>
@@ -197,7 +257,9 @@ export default function CategoriesScreen() {
               style={styles.saveButton}
               onPress={handleAddCategory}
             >
-              <Text style={styles.saveButtonText}>Add Category</Text>
+              <Text style={styles.saveButtonText}>
+                {isEditMode ? 'Update Category' : 'Add Category'}
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -213,18 +275,37 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
     backgroundColor: '#FFFFFF',
   },
+
   title: {
-    fontSize: 24,
+    position: 'absolute', // 👈 key
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1E293B',
   },
+
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 999,
+    elevation: 10,
+  },
+
+  backText: {
+    color: '#007AFF',
+    fontSize: 16,
+    marginLeft: 2,
+  },
+
   addButton: {
     backgroundColor: '#3B82F6',
     width: 40,

@@ -165,17 +165,11 @@ const notesSlice = createSlice({
             })
 
             .addCase(removeNote.fulfilled, (state, action) => {
-                console.log('note del -> ', action.payload);
-                console.log('state note -> ', state.notes);
+                const deletedId = action.meta.arg; // 👈 this is what you passed to dispatch
 
-                // Ensure notes is always a real array
-                const notesArray = Array.isArray(state.notes)
-                    ? state.notes
-                    : Object.values(state.notes || {});
-
-                state.notes = Array.isArray(action.payload)
-                    ? action.payload
-                    : (Object.values(action.payload || {}) as any);
+                state.notes = state.notes.filter(
+                    (note) => String(note.id) !== String(deletedId)
+                );
             })
 
             // UPDATE

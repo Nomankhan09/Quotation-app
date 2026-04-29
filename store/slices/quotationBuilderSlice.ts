@@ -4,8 +4,6 @@ import { fetchPaymentTerms, createPaymentTerm, deletePaymentTerm } from '@/servi
 import { RootState } from '@/store';
 import { fetchSpecifications } from '@/services/specificationsService';
 
-
-
 export interface SelectedProduct {
   productId: number;
   product_name: string;        // ✅ ADD
@@ -56,61 +54,15 @@ interface QuotationBuilderState {
   prefillData: any | null;
 }
 
-const defaultTerms: Term[] = [
-  {
-    id: '1',
-    text: 'All prices are subject to change without notice until order confirmation.',
-  },
-  {
-    id: '2',
-    text: 'This quotation is valid for 30 days from the date of issue.',
-  },
-  {
-    id: '3',
-    text: 'Delivery time is estimated and may vary based on product availability.',
-  },
-  {
-    id: '4',
-    text: 'Installation and setup services are available at additional cost.',
-  },
-  {
-    id: '5',
-    text: 'All products come with a standard 1-year warranty unless otherwise specified.',
-  },
-];
-
-const defaultPaymentTerms: PaymentTerm[] = [
-  {
-    id: '1',
-    description: 'Net 30',
-    value: 'Payment due within 30 days of invoice date',
-  },
-  {
-    id: '2',
-    description: 'Net 15',
-    value: 'Payment due within 15 days of invoice date',
-  },
-  {
-    id: '3',
-    description: '50% Upfront',
-    value: '50% payment required before project start, remaining 50% upon completion',
-  },
-  {
-    id: '4',
-    description: 'Cash on Delivery',
-    value: 'Full payment required upon delivery of goods/services',
-  },
-];
-
 const initialState: QuotationBuilderState = {
   selectedLead: null,
   selectedProducts: [],
   discount: { type: 'percentage', value: 0 },
   stage: 'Proposal',
-  terms: defaultTerms,
-  selectedTerms: defaultTerms.map(t => t.id),
-  paymentTerms: defaultPaymentTerms,
-  selectedPaymentTerms: defaultPaymentTerms.map(p => p.id),
+  terms: [],
+  selectedTerms: [],
+  paymentTerms: [],
+  selectedPaymentTerms: [],
   loading: false,
   termsInitialized: false,
   paymentTermsInitialized: false,
@@ -324,8 +276,8 @@ const quotationBuilderSlice = createSlice({
       state.prefillData = null;
     },
     clearTermsAndPaymentTerms: (state) => {
-      state.terms = defaultTerms;
-      state.paymentTerms = defaultPaymentTerms;
+      state.terms = [];
+      state.paymentTerms = [];
       state.termsInitialized = false;
       state.paymentTermsInitialized = false;
     },
@@ -359,7 +311,21 @@ const quotationBuilderSlice = createSlice({
       })
       .addCase(loadAllTerms.fulfilled, (state, action) => {
         state.loading = false;
-        state.terms = action.payload;
+        const terms = action.payload || [];
+        state.terms = terms;
+
+        if (state.isEditMode) {
+          const preselected = state.prefillData?.terms || [];
+          const ids = preselected.map((t: any) => String(t.id));
+
+          state.selectedTerms = terms
+            .map((t: any) => String(t.id))
+            .filter((id: string) => ids.includes(id));
+        } else {
+          // default → select all
+          state.selectedTerms = terms.map((t: any) => String(t.id));
+        }
+
         state.termsInitialized = true;
       })
       .addCase(loadAllTerms.rejected, (state) => {
@@ -376,7 +342,20 @@ const quotationBuilderSlice = createSlice({
       })
       .addCase(loadAllPaymentTerms.fulfilled, (state, action) => {
         state.loading = false;
-        state.paymentTerms = action.payload;
+        const terms = action.payload || [];
+
+        state.paymentTerms = terms;
+
+        if (state.isEditMode) {
+          const preselected = state.prefillData?.paymentTerms || [];
+          const ids = preselected.map((p: any) => String(p.id));
+
+          state.selectedPaymentTerms = terms
+            .map((p: any) => String(p.id))
+            .filter((id: string) => ids.includes(id));
+        } else {
+          state.selectedPaymentTerms = terms.map((p: any) => String(p.id));
+        }
         state.paymentTermsInitialized = true;
       })
       .addCase(loadAllPaymentTerms.rejected, (state) => {
@@ -422,7 +401,7 @@ const quotationBuilderSlice = createSlice({
           state.selectedSpecifications = validIds;
         } else {
           // ✅ New quotation: auto-select all by default
-          state.selectedSpecifications = specs.map((s: any) => s.id);
+          state.selectedSpecifications = specs.map((s: any) => String(s.id));
         }
       })
       .addCase(loadAllSpecifications.rejected, (state) => {

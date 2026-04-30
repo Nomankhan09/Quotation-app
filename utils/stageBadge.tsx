@@ -1,22 +1,33 @@
 import { Text, View } from "react-native";
 
-export const StageBadge = ({ stage, size }: { stage: string, size?: number }) => {
-    const getColor = (stage: string) => {
-        switch (stage) {
-            case "Lead":
-                return { bg: "#DBEAFE", text: "#2563EB" };
-            case "Proposal":
-                return { bg: "#E9D5FF", text: "#7C3AED" };
-            case "Negotiation":
-                return { bg: "#FEF3C7", text: "#D97706" };
-            case "Won":
-                return { bg: "#D1FAE5", text: "#059669" };
-            default:
-                return { bg: "#E5E7EB", text: "#374151" };
+export const StageBadge = ({
+    stage,
+    color,
+    size,
+}: {
+    stage: string;
+    color?: string;
+    size?: number;
+}) => {
+
+    const safeColor = color || "#64748B";
+
+    const hexToRGBA = (hex: string, alpha: number) => {
+
+        if (!hex.startsWith("#")) {
+            return `rgba(100,100,100,${alpha})`;
         }
+
+        const cleanHex = hex.replace("#", "");
+
+        const r = parseInt(cleanHex.substring(0, 2), 16);
+        const g = parseInt(cleanHex.substring(2, 4), 16);
+        const b = parseInt(cleanHex.substring(4, 6), 16);
+
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
 
-    const color = getColor(stage);
+    const bgColor = hexToRGBA(safeColor, 0.12);
 
     return (
         <View
@@ -24,32 +35,29 @@ export const StageBadge = ({ stage, size }: { stage: string, size?: number }) =>
                 flexDirection: "row",
                 alignItems: "center",
                 alignSelf: "flex-start",
-                backgroundColor: color.bg,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 999, // fully pill shape
+                backgroundColor: bgColor,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 999,
                 borderWidth: 1,
-                borderColor: "rgba(0,0,0,0.05)",
+                borderColor: hexToRGBA(safeColor, 0.2),
             }}
         >
-            {/* small dot indicator */}
             <View
                 style={{
                     width: size ?? 6,
                     height: size ?? 6,
                     borderRadius: (size ?? 6) / 2,
-                    backgroundColor: color.text,
+                    backgroundColor: safeColor,
                     marginRight: 6,
-                    opacity: 0.8,
                 }}
             />
 
             <Text
                 style={{
-                    color: color.text,
+                    color: safeColor,
                     fontSize: 11,
                     fontWeight: "600",
-                    letterSpacing: 0.2,
                 }}
             >
                 {stage}

@@ -7,31 +7,44 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
+  Linking,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import {
+  editLead,
+  Lead,
   setSearch,
 } from '@/store/slices/leadsSlice';
 import {
+  Phone,
   Plus,
   Search,
+  X,
 } from 'lucide-react-native';
 import { StageBadge } from '@/utils/stageBadge';
 import Avatar from '@/utils/avatar';
-import { STAGES } from '@/constants/constant';
 import { router } from 'expo-router';
-import { ILead } from '@/interface/leads';
 import ContactFormModal from '@/components/ContactFormModal';
+import { loadStatuses } from '@/store/slices/contactStatusSlice';
+import { timeAgo } from '@/utils/date_format';
+import StatusPickerModal from '@/components/StatusPickerModal';
 
 export default function LeadsScreen() {
   const dispatch = useDispatch<any>();
   const { leads, search } = useSelector(
     (state: RootState) => state.leads
   );
+  const { statuses } = useSelector(
+    (state: RootState) => state.contactStatus
+  );
   const [searchQuery, setSearchQuery] = useState(search);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedStage, setSelectedStage] = useState('All');
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handlePress = (contact: any) => {
     router.push({
@@ -41,7 +54,7 @@ export default function LeadsScreen() {
   };
 
   // Simple local search
-  const filteredLeads = leads.filter((lead: ILead) => {
+  const filteredLeads = leads.filter((lead: Lead) => {
     const searchText = searchQuery.toLowerCase();
 
     const matchesSearch =
@@ -60,105 +73,270 @@ export default function LeadsScreen() {
     dispatch(setSearch(text));
   };
 
-  const renderLeadItem = ({ item }) => (
-    <TouchableOpacity style={styles.leadCard} onPress={() => handlePress(item)}>
-      <View style={styles.row}>
-        {/* Avatar */}
-        <Avatar item={item} />
+  // status change
+  const handleStatusChange = async (
+    status: string
+  ) => {
 
-        {/* Name + Phone */}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.leadName}>{item.full_name}</Text>
+    if (!selectedLead) return;
 
-          {item.phone && (
-            <Text style={styles.phoneText}>{item.phone}</Text>
+    try {
+      setIsUpdatingStatus(true);
+      await dispatch(
+        editLead({
+          id: selectedLead.id,
+          full_name: selectedLead.full_name || '',
+          company_name: selectedLead.company_name || '',
+          email: selectedLead.email || '',
+          phone: selectedLead.phone || '',
+          notes: selectedLead.notes || '',
+          location: selectedLead.location || '',
+          stage: status,
+        })
+      ).unwrap();
+
+      setShowStatusModal(false);
+      setSelectedLead(null);
+
+    } catch (e) {
+      console.log(
+        'Status update error',
+        e
+      );
+
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    dispatch(loadStatuses());
+  }, []);
+
+  const renderLeadItem = ({ item }: { item: Lead }) => {
+
+    const statusColor =
+      statuses.find(
+        status => status.status === item.stage
+      )?.color;
+
+    return (
+      <TouchableOpacity
+        style={styles.leadCard}
+        activeOpacity={0.88}
+        onPress={() => handlePress(item)}
+      >
+
+        {/* AVATAR */}
+        <Avatar
+          item={item}
+          height={54}
+          width={54}
+        />
+
+        {/* CENTER */}
+        <View style={styles.centerContent}>
+
+          <Text
+            style={styles.leadName}
+            numberOfLines={1}
+          >
+            {item.full_name}
+          </Text>
+
+          {!!item.phone && (
+
+            <Text style={styles.phoneText}>
+              +91 {item.phone}
+            </Text>
           )}
+
+          {item.stage && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.badgeWrap}
+              onPress={() => {
+                setSelectedLead(item);
+                setShowStatusModal(true);
+              }}
+            >
+              <StageBadge
+                stage={item.stage}
+                color={statusColor}
+              />
+            </TouchableOpacity>
+          )}
+
         </View>
 
-        {/* Stage Badge */}
-        {item.stage && (
-          <StageBadge stage={item.stage} />
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+        {/* RIGHT */}
+        <View style={styles.rightContent}>
 
+          {!!item.created_at && (
 
-  // const fetchLogs = async () => {
-  //   try {
-  //     const granted = await PermissionsAndroid.request(
-  //       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG
-  //     );
+            <Text style={styles.timeText}>
+              {timeAgo(item.created_at)}
+            </Text>
+          )}
 
-  //     if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-  //       // console.log('Permission granted');
-  //     } else {
-  //       console.log('Permission denied');
-  //     }
-  //   } catch (e) {
-  //     console.error(e);
-  //   }
-  // };
+          {!!item.phone && (
+            <TouchableOpacity
+              style={styles.callBtn}
+              activeOpacity={0.75}
+              onPress={() =>
+                Linking.openURL(
+                  `tel:${item.phone}`
+                )
+              }
+            >
 
-  // useEffect(() => { fetchLogs(); }, []);
+              <Phone
+                size={18}
+                color="#111827"
+              />
+
+            </TouchableOpacity>
+          )}
+
+        </View>
+
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Contacts</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <Plus size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <View style={styles.topContainer}>
 
-      {/* Search */}
-      <View style={styles.searchContainer}>
-        <Search size={20} color="#64748B" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search contacts..."
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          placeholderTextColor="#94A3B8"
-        />
-      </View>
+        {/* TOP BAR */}
+        <View style={styles.topBar}>
 
-      {/* Stage Filter */}
-      <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {/* LEFT */}
+          <TouchableOpacity
+            style={styles.circleIconBtn}
+            onPress={() =>
+              setShowAddModal(true)
+            }
+          >
+            <Plus
+              size={22}
+              color="#111827"
+            />
+          </TouchableOpacity>
 
-          {['All', ...STAGES].map((item, index) => {
-            const isActive = selectedStage === item;
+          {/* CENTER */}
+          {!showSearch ? (
 
-            return (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setSelectedStage(item)}
-                style={[
-                  styles.filterChip,
-                  isActive && styles.filterChipActive
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    isActive && styles.filterTextActive
-                  ]}
+            <Text style={styles.screenTitle}>
+              Leads
+            </Text>
+
+          ) : (
+
+            <View style={styles.searchInlineWrap}>
+
+              <Search
+                size={18}
+                color="#9CA3AF"
+              />
+
+              <TextInput
+                autoFocus
+                value={searchQuery}
+                onChangeText={
+                  handleSearchChange
+                }
+                placeholder="Search..."
+                placeholderTextColor="#9CA3AF"
+                style={styles.inlineSearchInput}
+              />
+
+            </View>
+          )}
+
+          {/* RIGHT */}
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+
+              if (showSearch) {
+                setSearchQuery('');
+                dispatch(setSearch(''));
+              }
+
+              setShowSearch(
+                !showSearch
+              );
+            }}
+          >
+            {!showSearch ?
+              <Search
+                size={21}
+                color="#111827"
+              /> :
+              <X
+                size={21}
+                color="#111827"
+              />
+            }
+
+          </TouchableOpacity>
+
+        </View>
+
+        {/* FILTERS */}
+        <View style={styles.filterTabsWrap}>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+
+            {[
+              { status: 'All' },
+              ...statuses
+            ].map((item: any) => {
+
+              const active =
+                selectedStage === item.status;
+
+              return (
+
+                <TouchableOpacity
+                  key={item.status}
+                  style={styles.filterTab}
+                  onPress={() =>
+                    setSelectedStage(
+                      item.status
+                    )
+                  }
                 >
-                  {item} ({item === 'All'
-                    ? leads.length
-                    : leads.filter(lead => lead.stage === item).length
-                  })
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
 
-        </ScrollView>
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      active &&
+                      styles.filterTabTextActive
+                    ]}
+                  >
+                    {item.status}
+                  </Text>
+
+                  {active && (
+                    <View
+                      style={styles.activeLine}
+                    />
+                  )}
+
+                </TouchableOpacity>
+              );
+            })}
+
+          </ScrollView>
+
+        </View>
+
       </View>
 
       {/* Leads List */}
@@ -179,8 +357,20 @@ export default function LeadsScreen() {
       <ContactFormModal
         visible={showAddModal}
         mode="add"
-        STAGES={STAGES}
-        onClose={() => setShowAddModal(false)}
+        STAGES={statuses?.map((status) => status.status)}
+        onClose={() => { setShowAddModal(false); setSelectedLead(null); }}
+      />
+
+      {/* For change status */}
+      <StatusPickerModal
+        visible={showStatusModal}
+        onClose={() =>
+          setShowStatusModal(false)
+        }
+        statuses={statuses}
+        currentStatus={selectedLead?.stage}
+        loading={isUpdatingStatus}
+        onSelect={handleStatusChange}
       />
     </View>
   );
@@ -191,88 +381,68 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-  },
-  addButton: {
-    backgroundColor: '#3B82F6',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginVertical: 16,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1E293B',
-  },
+
   listContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
     paddingBottom: 100,
+    gap: 2,
   },
+
   leadCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginTop: 5,
-  },
-  leadHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderRadius: 10,
+    borderBottomColor: '#F1F5F9',
   },
-  leadInfo: {
+  centerContent: {
     flex: 1,
+    marginLeft: 14,
+    justifyContent: 'center',
   },
   leadName: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  phoneText: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  badgeWrap: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  rightContent: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 64,
+    marginLeft: 10,
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#9CA3AF',
     fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
   },
-  leadCompany: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  leadDetails: {
-    gap: 8,
+  callBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   emptyContainer: {
@@ -290,36 +460,101 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 6,
   },
-  phoneText: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  filterRow: {
-    marginHorizontal: 20,
-    marginBottom: 10,
+  topContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
 
-  filterChip: {
-    paddingVertical: 6,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
+
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+  },
+
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  circleIconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+
+    backgroundColor: '#F8FAFC',
+
+    justifyContent: 'center',
+    alignItems: 'center',
+
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+  },
+
+  searchInlineWrap: {
+    flex: 1,
+    height: 42,
+
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    backgroundColor: '#F8FAFC',
+
+    marginHorizontal: 14,
+
+    borderRadius: 999,
+
     paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    marginRight: 8,
   },
 
-  filterChipActive: {
-    backgroundColor: '#007AFF',
+  inlineSearchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: '#111827',
   },
 
-  filterText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '500',
+  filterTabsWrap: {
+    paddingHorizontal: 14,
   },
 
-  filterTextActive: {
-    color: '#FFFFFF',
+  filterTab: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+    marginRight: 18,
+    alignItems: 'center',
+  },
+
+  filterTabText: {
+    fontSize: 14,
+    color: '#9CA3AF',
     fontWeight: '600',
+  },
+
+  filterTabTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+
+  activeLine: {
+    marginTop: 10,
+    width: '100%',
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#2563EB',
   },
 });

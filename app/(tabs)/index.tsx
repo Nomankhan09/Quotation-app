@@ -6,16 +6,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import {
-  Users, Package, Grid3x3 as Grid3X3, TrendingUp,
-  IndianRupee, FileText,
-  Tags,
-  UserPlus,
-  ClipboardList
+  Users, Package, TrendingUp, IndianRupee, FileText, Tags, UserPlus, ClipboardList
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
 import { router } from 'expo-router';
-// import * as Notifications from 'expo-notifications';
+import * as Notifications from 'expo-notifications';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 64) / 2;
@@ -41,22 +37,21 @@ export default function HomeScreen() {
     useSelector((state: RootState) => state.dashboard);
 
   // Notification permission
-  // const requestPermissions = async () => {
-  //   const { status } = await Notifications.requestPermissionsAsync();
-  //   if (status !== 'granted') {
-  //     alert('Permission for notifications not granted!');
-  //   }
-  // };
+  const requestPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission for notifications not granted!');
+    }
+  };
 
 
   useEffect(() => {
     dispatch(fetchDashboardSummary());
   }, [dispatch]);
 
-  // useEffect(() => {
-  //   requestPermissions();
-  //   test();
-  // }, [])
+  useEffect(() => {
+    requestPermissions();
+  }, [])
 
   // useEffect(() => {
   //   const init = async () => {
@@ -67,11 +62,6 @@ export default function HomeScreen() {
 
   //   init();
   // }, []);
-
-  // const test = async () => {
-  //   const all = await Notifications.getAllScheduledNotificationsAsync();
-  //   console.log(all);
-  // }
 
   // useEffect(() => {
   //   const now = new Date().toISOString();

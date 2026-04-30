@@ -4,8 +4,6 @@ import { fetchPaymentTerms, createPaymentTerm, deletePaymentTerm } from '@/servi
 import { RootState } from '@/store';
 import { fetchSpecifications } from '@/services/specificationsService';
 
-
-
 export interface SelectedProduct {
   productId: number;
   product_name: string;        // ✅ ADD
@@ -20,12 +18,12 @@ export interface SelectedProduct {
 }
 
 export interface Term {
-  id: string;
+  id: number;
   text: string;
 }
 
 export interface PaymentTerm {
-  id: string;
+  id: number;
   description: string;
   value: string;
 }
@@ -37,16 +35,16 @@ export interface Discount {
 
 
 interface QuotationBuilderState {
-  selectedLead: string | null;
+  selectedLead: number | null;
   selectedProducts: SelectedProduct[];
   discount: Discount;
   stage: string;
   terms: Term[];
-  selectedTerms: string[];
+  selectedTerms: number[];
   allSpecifications: any[];
   selectedSpecifications: string[];
   paymentTerms: PaymentTerm[];
-  selectedPaymentTerms: string[];
+  selectedPaymentTerms: number[];
   loading: boolean;
   termsInitialized: boolean;
   paymentTermsInitialized: boolean;
@@ -56,61 +54,15 @@ interface QuotationBuilderState {
   prefillData: any | null;
 }
 
-const defaultTerms: Term[] = [
-  {
-    id: '1',
-    text: 'All prices are subject to change without notice until order confirmation.',
-  },
-  {
-    id: '2',
-    text: 'This quotation is valid for 30 days from the date of issue.',
-  },
-  {
-    id: '3',
-    text: 'Delivery time is estimated and may vary based on product availability.',
-  },
-  {
-    id: '4',
-    text: 'Installation and setup services are available at additional cost.',
-  },
-  {
-    id: '5',
-    text: 'All products come with a standard 1-year warranty unless otherwise specified.',
-  },
-];
-
-const defaultPaymentTerms: PaymentTerm[] = [
-  {
-    id: '1',
-    description: 'Net 30',
-    value: 'Payment due within 30 days of invoice date',
-  },
-  {
-    id: '2',
-    description: 'Net 15',
-    value: 'Payment due within 15 days of invoice date',
-  },
-  {
-    id: '3',
-    description: '50% Upfront',
-    value: '50% payment required before project start, remaining 50% upon completion',
-  },
-  {
-    id: '4',
-    description: 'Cash on Delivery',
-    value: 'Full payment required upon delivery of goods/services',
-  },
-];
-
 const initialState: QuotationBuilderState = {
   selectedLead: null,
   selectedProducts: [],
   discount: { type: 'percentage', value: 0 },
   stage: 'Proposal',
-  terms: defaultTerms,
-  selectedTerms: defaultTerms.map(t => t.id),
-  paymentTerms: defaultPaymentTerms,
-  selectedPaymentTerms: defaultPaymentTerms.map(p => p.id),
+  terms: [],
+  selectedTerms: [],
+  paymentTerms: [],
+  selectedPaymentTerms: [],
   loading: false,
   termsInitialized: false,
   paymentTermsInitialized: false,
@@ -159,7 +111,7 @@ export const addCustomTerm = createAsyncThunk(
 
 export const deleteOneTerm = createAsyncThunk(
   "quotationBuilder/deleteOneTerm",
-  async (termId: string, { getState, rejectWithValue }) => {
+  async (termId: number, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const token = state.auth.token;
@@ -210,7 +162,7 @@ export const addCustomPaymentTerm = createAsyncThunk(
 
 export const deleteOnePaymentTerm = createAsyncThunk(
   "quotationBuilder/deleteOnePaymentTerm",
-  async (paymentTermId: string, { getState, rejectWithValue }) => {
+  async (paymentTermId: number, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
       const token = state.auth.token;
@@ -254,7 +206,7 @@ const quotationBuilderSlice = createSlice({
 
       state.allSpecifications.unshift(action.payload);
     },
-    setSelectedLead: (state, action: PayloadAction<string>) => {
+    setSelectedLead: (state, action: PayloadAction<number>) => {
       state.selectedLead = action.payload;
     },
     setSelectedProducts: (state, action: PayloadAction<SelectedProduct[]>) => {
@@ -266,10 +218,10 @@ const quotationBuilderSlice = createSlice({
     setDiscount: (state, action: PayloadAction<Discount>) => {
       state.discount = action.payload;
     },
-    setTerms: (state, action: PayloadAction<string[]>) => {
+    setTerms: (state, action: PayloadAction<number[]>) => {
       state.selectedTerms = action.payload;
     },
-    setPaymentTerms: (state, action: PayloadAction<string[]>) => {
+    setPaymentTerms: (state, action: PayloadAction<number[]>) => {
       state.selectedPaymentTerms = action.payload;
     },
     setSpecifications: (state, action: PayloadAction<string[]>) => {
@@ -324,8 +276,8 @@ const quotationBuilderSlice = createSlice({
       state.prefillData = null;
     },
     clearTermsAndPaymentTerms: (state) => {
-      state.terms = defaultTerms;
-      state.paymentTerms = defaultPaymentTerms;
+      state.terms = [];
+      state.paymentTerms = [];
       state.termsInitialized = false;
       state.paymentTermsInitialized = false;
     },
@@ -346,6 +298,13 @@ const quotationBuilderSlice = createSlice({
       state.stage = action.payload.prefillData?.stage || '';
       const specs = action.payload.prefillData?.specifications || [];
       state.selectedSpecifications = specs.map((s: any) => String(s.id));
+
+      state.selectedTerms =
+        action.payload.prefillData?.terms?.map(
+          (t: any) => Number(t.id)
+        ) || [];
+      // state.selectedTerms = action.payload.prefillData?.ter``ms?.map((t: any) => t) || [];
+      // state.selectedPaymentTerms = action.payload.prefillDa``ta?.paymentTerms?.map((p: any) => p.id) || [];
       // if (action.payload.currentStep) {
       //   state.currentStep = action.payload.currentStep;
       // }

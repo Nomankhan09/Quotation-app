@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native'
+import { View, Text, Image, StyleSheet } from 'react-native'
 import React from 'react'
 
 const AVATAR_COLORS = [
@@ -14,6 +14,8 @@ const AVATAR_COLORS = [
 type Props = {
     item: {
         full_name: string;
+        profile_image?: string | null;
+        profile_image_url?: string | null;
     };
     height?: number;
     width?: number;
@@ -57,15 +59,52 @@ export default function Avatar({ item, height, width }: Props) {
 
 
     return (
-        <View style={[styles.avatar, { backgroundColor: bgColor, width: width ?? 42, height: height ?? 42, borderRadius: (width ?? 42) / 2 }]}>
-            <Text style={[styles.avatarText, { color: textColor }]}>
-                {getInitials(item.full_name)}
-            </Text>
+
+        <View
+            style={[
+                styles.avatar,
+                {
+                    backgroundColor: bgColor,
+                    width: width ?? 42,
+                    height: height ?? 42,
+                    borderRadius: (width ?? 42) / 2,
+                }
+            ]}
+        >
+
+            {item?.profile_image_url || item?.profile_image ? (
+
+                <Image
+                    source={{
+                        uri:
+                            item.profile_image_url ||
+                            item.profile_image
+                    }}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: (width ?? 42) / 2,
+                    }}
+                    resizeMode="cover"
+                />
+
+            ) : (
+
+                <Text
+                    style={[
+                        styles.avatarText,
+                        { color: textColor }
+                    ]}
+                >
+                    {getInitials(item.full_name)}
+                </Text>
+            )}
+
         </View>
     );
 }
 
-const styles = {
+const styles = StyleSheet.create({
     avatar: {
         // width: 42,
         // height: 42,
@@ -79,4 +118,4 @@ const styles = {
         fontWeight: "700",
         color: "#2563EB",
     },
-}
+});

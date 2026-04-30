@@ -5,6 +5,6 @@ export interface ILead {
     job_title?: string;
     email?: string;
     phone: string;
-    stage: string;
+    stage?: string;
     location: string;
 }

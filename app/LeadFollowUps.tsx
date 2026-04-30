@@ -21,8 +21,8 @@ import { AppDispatch, RootState } from '@/store';
 import { ILead } from '@/interface/leads';
 import { openTimePicker } from '@/utils/time_picker';
 import { formatDate, getDaysAgo, parseDate } from '@/utils/date_format';
-// import { scheduleFollowUpNotification } from '@/utils/notifications/notifications';
-// import * as Notifications from 'expo-notifications';
+import { scheduleFollowUpNotification } from '@/utils/notifications/notifications';
+import * as Notifications from 'expo-notifications';
 
 // ─── Type meta ───────────────────────────────────────────────────────────────
 const TYPE_META: Record<IFollowUpType, { icon: string; color: string; bg: string }> = {
@@ -122,20 +122,19 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
         };
 
         // 🔔 1. schedule notification FIRST
-        // const notificationId = await scheduleFollowUpNotification(
-        //     {
-        //         ...basePayload,
-        //         id: editingId ?? 'temp-id',
-        //         type: basePayload.type as any,
-        //         title: basePayload.title,
-        //     } as any,
-        //     parseDate(data.date)
-        // );
-        // console.log('parseDate(data.date)',parseDate(data.date));
+        const notificationId = await scheduleFollowUpNotification(
+            {
+                ...basePayload,
+                id: editingId ?? 'temp-id',
+                type: basePayload.type as any,
+                title: basePayload.title,
+            } as any,
+            parseDate(data.date)
+        );
 
         const finalPayload: IFollowUpPayload = {
             ...basePayload,
-            notification_id: null,
+            notification_id: notificationId,
         };
 
         // 2. THEN save to DB
@@ -189,9 +188,9 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
         if (!item) return;
 
         // cancel old notification 
-        // if (item.notification_id) {
-        //     await Notifications.cancelScheduledNotificationAsync(item.notification_id);
-        // }
+        if (item.notification_id) {
+            await Notifications.cancelScheduledNotificationAsync(item.notification_id);
+        }
         const snoozeMs = ms ?? getMsFromCustom();
         const baseDate = new Date(item.date.replace(' ', 'T'));
         const newDate = new Date(baseDate.getTime() + snoozeMs);
@@ -201,10 +200,10 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
             .replace('T', ' ');
 
         // 🔔 schedule new one
-        // const notificationId = await scheduleFollowUpNotification(
-        //     item,
-        //     newDate
-        // );
+        const notificationId = await scheduleFollowUpNotification(
+            item,
+            newDate
+        );
 
         dispatch(editFollowUp({
             id,
@@ -213,7 +212,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
                 contact_id: lead.lead.id,
                 date: formattedDate,
                 status: 'snoozed',
-                notification_id: null,
+                notification_id: notificationId,
             }
         }));
 

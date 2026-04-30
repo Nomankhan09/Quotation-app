@@ -7,6 +7,7 @@ import { loadAllLeads } from '@/store/slices/leadsSlice';
 import { loadAllProducts } from '@/store/slices/productsSlice';
 import { loadAllCategories } from '@/store/slices/categoriesSlice';
 import { loadAllSpecifications } from '@/store/slices/specificationsSlice';
+import { clearTermsAndPaymentTerms, loadAllPaymentTerms, loadAllTerms } from '@/store/slices/quotationBuilderSlice';
 
 interface StartupScreenProps {
   onComplete: () => void;
@@ -21,13 +22,17 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        dispatch(clearTermsAndPaymentTerms());
+
         await Promise.all([
+          dispatch(loadAllTerms()),
+          dispatch(loadAllPaymentTerms()),
           dispatch(loadAllLeads()),
           dispatch(loadAllProducts()),
           dispatch(loadAllCategories()),
           dispatch(loadAllSpecifications())
         ]);
-        
+
         // Add a small delay to ensure smooth transition
         setTimeout(() => {
           onComplete();
@@ -87,7 +92,7 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
         <View style={styles.logoContainer}>
           <View style={styles.logoBackground}>
             <Text style={styles.logoText}>
-              <Image source={{ uri: 'https://www.decolivings.com/img/DecoLivings-Website-Logo.jpg' }} style={styles.logoImage} resizeMode="contain"/>
+              <Image source={{ uri: 'https://www.decolivings.com/img/DecoLivings-Website-Logo.jpg' }} style={styles.logoImage} resizeMode="contain" />
             </Text>
           </View>
           <View style={styles.logoGlow} />

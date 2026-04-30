@@ -30,15 +30,12 @@ import {
   X,
   Check,
   Search,
-  Trash2,
   ChevronDown,
   Calendar,
   Edit,
   Minus,
   Building,
   Mail,
-  Phone,
-  Tag,
   SlidersHorizontal,
 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -56,13 +53,8 @@ import {
   setStage,
 } from '@/store/slices/quotationBuilderSlice';
 import { saveQuotation, editQuotation } from '@/store/slices/quotationsSlice';
-import { addLead } from '@/store/slices/leadsSlice';
-import { addProduct } from '@/store/slices/productsSlice';
-import { addCategory } from '@/store/slices/categoriesSlice';
 import {
-  loadAllTerms,
   addCustomTerm,
-  loadAllPaymentTerms,
   addCustomPaymentTerm
 } from '@/store/slices/quotationBuilderSlice';
 import { createSpecification } from '@/services/specificationsService';
@@ -73,7 +65,6 @@ export default function CreateQuotationCompactScreen() {
   const params = useLocalSearchParams();
   const editMode = params.editMode === 'true';
   const quotationId = params.quotationId as string;
-  const prefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
 
   // Redux selectors
   const { leads } = useSelector((state: RootState) => state.leads);
@@ -154,14 +145,7 @@ export default function CreateQuotationCompactScreen() {
   });
 
   const hasPrefilled = useRef(false);
-
-  // Load terms on mount
-  useEffect(() => {
-    if (token) {
-      dispatch(loadAllTerms());
-      dispatch(loadAllPaymentTerms());
-    }
-  }, [token, dispatch]);
+ 
 
   const {
     termsInitialized,
@@ -189,7 +173,7 @@ export default function CreateQuotationCompactScreen() {
   ]);
 
   // Helper functions
-  const getSelectedClient = () => leads.find(lead => lead.id === selectedLead);
+  const getSelectedClient = () => leads.find(lead => Number(lead.id) === selectedLead);
 
   const getSubtotal = () => {
     return selectedProducts.reduce((sum, product) => {
@@ -245,7 +229,7 @@ export default function CreateQuotationCompactScreen() {
   const getFinalTotal = () => getSubtotal() - getDiscountAmount();
 
   // Handlers
-  const handleSelectClient = (leadId: string) => {
+  const handleSelectClient = (leadId: number) => {
     dispatch(setSelectedLead(leadId));
     setShowClientModal(false);
   };
@@ -321,14 +305,14 @@ export default function CreateQuotationCompactScreen() {
     }
   };
 
-  const handleToggleTerm = (termId: string) => {
+  const handleToggleTerm = (termId: number) => {
     const updatedTerms = selectedTerms.includes(termId)
-      ? selectedTerms.filter(id => id.toString() !== termId)
+      ? selectedTerms.filter(id => id !== termId)
       : [...selectedTerms, termId];
     dispatch(setTerms(updatedTerms));
   };
 
-  const handleTogglePaymentTerm = (termId: string) => {
+  const handleTogglePaymentTerm = (termId: number) => {
     const updatedTerms = selectedPaymentTerms.includes(termId)
       ? selectedPaymentTerms.filter(id => id !== termId)
       : [...selectedPaymentTerms, termId];
@@ -391,7 +375,15 @@ export default function CreateQuotationCompactScreen() {
 
       const quotationData = {
         leadId: selectedLead,
-        products: selectedProducts,
+        products: selectedProducts.map((p) => ({
+          ...p,
+          productId: Number(p.productId),
+          unitPrice: Number(p.unitPrice),
+          quantity: Number(p.quantity),
+          length: p.length ? Number(p.length) : null,
+          width: p.width ? Number(p.width) : null,
+          totalPrice: Number(p.totalPrice),
+        })),
         subtotal: parseFloat(getSubtotal().toFixed(2)),
         discount: {
           type: discountType,
@@ -399,12 +391,9 @@ export default function CreateQuotationCompactScreen() {
         },
         discountAmount: parseFloat(getDiscountAmount().toFixed(2)),
         totalAmount: parseFloat(getFinalTotal().toFixed(2)),
-        terms: selectedTerms.map(id => terms.find(t => t.id === id)?.text).filter(Boolean),
+        terms: selectedTerms,
         stage,
-        paymentTerms: selectedPaymentTerms.map(id => {
-          const pt = paymentTerms.find(p => p.id === id);
-          return pt ? { id: pt.id, description: pt.description, value: pt.value } : null;
-        }).filter(Boolean),
+        paymentTerms: selectedPaymentTerms,
         specifications: selectedSpecifications,
         status: "sent",
         validUntil: quotationDetails.validUntil.toISOString(),
@@ -426,6 +415,7 @@ export default function CreateQuotationCompactScreen() {
       );
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Failed to save");
+      console.log('eeerrr', error);
     } finally {
       setSaving(false);
     }
@@ -984,7 +974,7 @@ export default function CreateQuotationCompactScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[styles.modalItem, selectedLead === item.id && styles.modalItemActive]}
-                onPress={() => handleSelectClient(item.id)}
+                onPress={() => handleSelectClient(Number(item.id))}
                 activeOpacity={0.7}
               >
                 <View style={styles.modalItemAvatar}>
@@ -1114,7 +1104,7 @@ export default function CreateQuotationCompactScreen() {
                 <Text style={styles.termModalText}>{item.text}</Text>
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.modalList}
           />
         </View>
@@ -1172,7 +1162,7 @@ export default function CreateQuotationCompactScreen() {
                 </View>
               </TouchableOpacity>
             )}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.modalList}
           />
         </View>

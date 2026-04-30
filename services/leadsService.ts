@@ -45,3 +45,13 @@ export const updateLead = async (leadId: string, leadData: {
     });
     return response.data;
 };
+
+export const fetchContactStatuses = async (token: string) => {
+  const response = await api.get("/contact-status", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return response.data.data;
+};

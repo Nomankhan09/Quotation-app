@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -17,26 +17,22 @@ import { Quotation } from "@/store/slices/quotationsSlice";
 import { router } from "expo-router";
 import {
   Plus,
-  User,
-  Calendar,
   IndianRupee,
   Package,
   Search,
-  Eye,
   FileText,
   Clock,
   TrendingUp,
-  Filter,
   ChevronRight,
 } from "lucide-react-native";
 import { resetForNewQuotation } from "@/store/slices/quotationBuilderSlice";
+import Avatar from "@/utils/avatar";
 
 export default function QuotationsScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { quotations, loading, loadingMore, search, pagination } = useSelector((state: RootState) => state.quotations);
   const { leads } = useSelector((state: RootState) => state.leads);
   const { products } = useSelector((state: RootState) => state.products);
-  
   const [searchQuery, setSearchQuery] = useState(search);
 
   // Debounced search
@@ -105,7 +101,7 @@ export default function QuotationsScreen() {
 
   const renderFooter = () => {
     if (!loadingMore) return null;
-    
+
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color="#3B82F6" />
@@ -116,7 +112,8 @@ export default function QuotationsScreen() {
 
   const renderQuotationItem = ({ item }: { item: Quotation }) => {
     const statusConfig = getStatusConfig(item.status);
-    
+    const lead = leads.find((lead) => Number(lead.id) === Number(item.leadId));
+
     return (
       <TouchableOpacity
         style={styles.quotationCard}
@@ -132,7 +129,7 @@ export default function QuotationsScreen() {
               <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
             </View>
           </View>
-          
+
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
@@ -142,9 +139,10 @@ export default function QuotationsScreen() {
 
         {/* Client Info */}
         <View style={styles.clientSection}>
-          <View style={styles.clientIcon}>
-            <User size={18} color="#3B82F6" />
-          </View>
+          {/* <View style={styles.clientIcon}> */}
+          {/* <User size={18} color="#3B82F6" /> */}
+          <Avatar height={45} width={45} item={lead} />
+          {/* </View> */}
           <View style={styles.clientInfo}>
             <Text style={styles.clientLabel}>Client</Text>
             <Text style={styles.clientName}>{getLeadName(item.leadId)}</Text>
@@ -177,7 +175,7 @@ export default function QuotationsScreen() {
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.viewAction}>
             <Text style={styles.viewActionText}>View</Text>
             <ChevronRight size={16} color="#3B82F6" />
@@ -230,7 +228,7 @@ export default function QuotationsScreen() {
               )}
             </View>
           </View>
-          
+
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => {
@@ -256,7 +254,7 @@ export default function QuotationsScreen() {
             placeholderTextColor="#CBD5E1"
           />
         </View>
-        
+
         {/* Filter button - placeholder for future functionality */}
         {/* <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
           <Filter size={20} color="#64748B" />
@@ -292,8 +290,8 @@ export default function QuotationsScreen() {
                 {searchQuery ? "No quotations found" : "No quotations yet"}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {searchQuery 
-                  ? "Try adjusting your search terms" 
+                {searchQuery
+                  ? "Try adjusting your search terms"
                   : "Create your first quotation to get started"}
               </Text>
               {!searchQuery && (
@@ -333,7 +331,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
   },
-  
+
   // Header
   header: {
     backgroundColor: '#FFFFFF',
@@ -401,7 +399,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  
+
   // Search Section
   searchSection: {
     flexDirection: 'row',
@@ -438,7 +436,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E2E8F0',
   },
-  
+
   // List
   listContainer: {
     paddingHorizontal: 20,
@@ -449,7 +447,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  
+
   // Quotation Card
   quotationCard: {
     backgroundColor: '#FFFFFF',
@@ -504,7 +502,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  
+
   // Client Section
   clientSection: {
     flexDirection: 'row',
@@ -536,7 +534,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  
+
   // Products Section
   productsSection: {
     backgroundColor: '#F8FAFC',
@@ -562,7 +560,7 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontWeight: '500',
   },
-  
+
   // Card Footer
   cardFooter: {
     flexDirection: 'row',
@@ -605,7 +603,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#3B82F6',
   },
-  
+
   // Notes
   notesContainer: {
     flexDirection: 'row',
@@ -623,7 +621,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-  
+
   // Empty State
   emptyContainer: {
     alignItems: 'center',
@@ -676,7 +674,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
-  
+
   // Footer Loader
   footerLoader: {
     flexDirection: 'row',

@@ -19,7 +19,7 @@ export const createTerm = async (termData: {
   return response.data;
 };
 
-export const deleteTerm = async (termId: string, token: string) => {
+export const deleteTerm = async (termId: number, token: string) => {
   const response = await api.delete(`/terms/${termId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

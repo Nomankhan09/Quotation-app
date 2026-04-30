@@ -10,6 +10,13 @@ export interface Lead {
   company_name: string;
   created_at: string;
   notes?: string;
+  location?: string;
+  stage?: string;
+  source?: string;
+  company?: string;
+  title?: string;
+  profile_image?: string;
+  profile_image_url?: string;
 }
 
 interface LeadsState {
@@ -51,7 +58,7 @@ export const loadAllLeads = createAsyncThunk(
 
       return allLeads;
     } catch (err: any) {
-      console.log("Error fetching leads:", err);
+      console.log("Error fetching leads:", err.response);
       return rejectWithValue(err.response?.data || err.message);
     }
   }
@@ -74,6 +81,7 @@ export const addLead = createAsyncThunk(
       const newLead = await createLead(leadData, token);
       return newLead;
     } catch (err: any) {
+      console.log('adding lead -> ',err.response);
       return rejectWithValue(err.response?.data || err.message);
     }
   }
@@ -88,6 +96,7 @@ export const editLead = createAsyncThunk(
     email: string;
     phone: string;
     notes?: string;
+    stage?:string;
     location: string;
   }, { getState, rejectWithValue }) => {
     try {
@@ -97,6 +106,7 @@ export const editLead = createAsyncThunk(
       const newLead = await updateLead(leadData.id, leadData, token);
       return newLead;
     } catch (err: any) {
+      console.log('edit lead', err.response)
       return rejectWithValue(err.response?.data || err.message);
     }
   }

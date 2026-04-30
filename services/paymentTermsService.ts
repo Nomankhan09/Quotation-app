@@ -20,7 +20,7 @@ export const createPaymentTerm = async (paymentTermData: {
   return response.data;
 };
 
-export const deletePaymentTerm = async (paymentTermId: string, token: string) => {
+export const deletePaymentTerm = async (paymentTermId: number, token: string) => {
   const response = await api.delete(`/payment-terms/${paymentTermId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });

@@ -36,7 +36,10 @@ interface QuotationData {
   };
   discountAmount: number;
   totalAmount: number;
-  terms: string[];
+  terms: {
+    text: string;
+    id: number;
+  }[];
   paymentTerms: Array<{
     description: string;
     value: string;
@@ -196,7 +199,7 @@ export const generateQuotationHTML = (quotationData: QuotationData, specificatio
   const termsHTML = quotationData.terms.map((term, index) => `
     <div style="font-size: 14px; margin-bottom: 8px; display: flex;">
       <div style="margin-right: 10px; min-width: 15px;">${index + 1}.</div>
-      <div>${term}</div>
+      <div>${term.text}</div>
     </div>
   `).join('');
 

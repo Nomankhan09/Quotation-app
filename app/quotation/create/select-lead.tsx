@@ -33,7 +33,11 @@ import {
   MapPin,
 } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { STAGES } from '@/constants/constant';
+import Avatar from '@/utils/avatar';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { Camera } from 'lucide-react-native';
+import { SOURCE_OPTIONS } from '@/constants/constant';
 
 export default function SelectLeadScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
@@ -47,6 +51,9 @@ export default function SelectLeadScreen() {
   const [showStagePicker, setShowStagePicker] = useState(false);
   const urlPrefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
   const prefillData = persistedPrefillData || urlPrefillData;
+  const { statuses } = useSelector(
+    (state: RootState) => state.contactStatus
+  );
 
   const hasPrefilled = useRef(false);
   const hasSetEditMode = useRef(false);
@@ -60,11 +67,16 @@ export default function SelectLeadScreen() {
       company_name: '',
       notes: '',
       location: '',
-      stage: "Lead",
+      stage: "New",
       job_title: '',
+      source: '',
+      custom_source: '',
+      profile_image: '',
     }
   });
   const stage = watch("stage");
+  const selectedSource = watch('source');
+  const profileImage = watch('profile_image');
 
   useEffect(() => {
     if (editMode && !hasSetEditMode.current) {
@@ -100,17 +112,29 @@ export default function SelectLeadScreen() {
   );
 
   const handleSelectLead = (leadId: string) => {
-    dispatch(setSelectedLead(leadId));
+    dispatch(setSelectedLead(Number(leadId)));
     router.back();
   };
 
   const onSubmit = async (data: any) => {
     try {
       setIsCreateLoading(true);
-      if (!data.email) {
-        data.email = "NA"
+      const finalSource =
+        data.source === 'Other'
+          ? data.custom_source
+          : data.source;
+
+      const payload = {
+        ...data,
+        source: finalSource,
+      };
+
+      delete payload.custom_source;
+
+      if (!payload.email) {
+        payload.email = "NA";
       }
-      const createdLead = await dispatch(addLead(data)).unwrap();
+      const createdLead = await dispatch(addLead(payload)).unwrap();
 
       dispatch(setSelectedLead(createdLead.id));
       reset();
@@ -133,6 +157,39 @@ export default function SelectLeadScreen() {
     }
   };
 
+  // Profile image selection
+  const pickImage = async () => {
+
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      return;
+    }
+
+    const result =
+      await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+    if (!result.canceled) {
+
+      const asset = result.assets[0];
+
+      const base64Image =
+        `data:image/jpeg;base64,${asset.base64}`;
+
+      setValue(
+        'profile_image',
+        base64Image
+      );
+    }
+  };
+
   const renderLeadItem = ({ item }: { item: any }) => {
     const isSelected = selectedLead === item.id;
 
@@ -143,9 +200,10 @@ export default function SelectLeadScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.leadContent}>
-          <View style={styles.leadAvatar}>
+          {/* <View style={styles.leadAvatar}>
             <User size={24} color={isSelected ? '#3B82F6' : '#64748B'} />
-          </View>
+          </View> */}
+          <Avatar height={45} width={45} item={item} />
 
           <View style={styles.leadInfo}>
             <Text style={[styles.leadName, isSelected && styles.leadNameSelected]}>
@@ -330,6 +388,40 @@ export default function SelectLeadScreen() {
             <View style={styles.formSection}>
               <Text style={styles.formSectionLabel}>Basic Information</Text>
 
+              {/* Profile Image */}
+              <View style={styles.avatarSection}>
+
+                <TouchableOpacity
+                  style={styles.avatarWrapper}
+                  onPress={pickImage}
+                >
+
+                  {profileImage ? (
+
+                    <Image
+                      source={{ uri: profileImage }}
+                      style={styles.avatarImage}
+                    />
+
+                  ) : (
+
+                    <View style={styles.avatarPlaceholder}>
+                      <Camera size={30} color="#64748B" />
+                    </View>
+                  )}
+
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={pickImage}
+                >
+                  <Text style={styles.addPhotoText}>
+                    Add Photo
+                  </Text>
+                </TouchableOpacity>
+
+              </View>
+
               {/* Full Name */}
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Full Name *</Text>
@@ -422,6 +514,7 @@ export default function SelectLeadScreen() {
                 )}
               </View>
 
+              {/* Stage */}
               <View style={styles.fieldWrapper}>
                 <Text style={styles.label}>Stage *</Text>
 
@@ -435,25 +528,25 @@ export default function SelectLeadScreen() {
 
                 {showStagePicker && (
                   <View style={styles.stageDropdown}>
-                    {STAGES.map((item) => (
+                    {statuses.map((item) => (
                       <TouchableOpacity
-                        key={item}
+                        key={item.id}
                         style={[
                           styles.stageOption,
-                          stage === item && styles.stageOptionActive,
+                          stage === item.status && styles.stageOptionActive,
                         ]}
                         onPress={() => {
-                          setValue("stage", item);
+                          setValue("stage", item.status);
                           setShowStagePicker(false);
                         }}
                       >
                         <Text
                           style={[
                             styles.stageOptionText,
-                            stage === item && styles.stageOptionTextActive,
+                            stage === item.status && styles.stageOptionTextActive,
                           ]}
                         >
-                          {item}
+                          {item.status}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -466,6 +559,7 @@ export default function SelectLeadScreen() {
             <View style={styles.formSection}>
               <Text style={styles.formSectionLabel}>Optional Fields</Text>
 
+              {/* EMail */}
               <View style={styles.formGroup}>
                 <Text style={styles.inputLabel}>Email Address</Text>
                 <View style={styles.inputWrapper}>
@@ -496,6 +590,88 @@ export default function SelectLeadScreen() {
                 {errors.email && (
                   <Text style={{ color: 'red' }}>{errors.email.message}</Text>
                 )}
+              </View>
+
+              {/* Source */}
+              <View style={styles.formGroup}>
+
+                <Text style={styles.inputLabel}>
+                  Lead Source
+                </Text>
+
+                <Controller
+                  control={control}
+                  name="source"
+                  render={({ field: { value } }) => (
+
+                    <View style={styles.sourceWrap}>
+
+                      {SOURCE_OPTIONS.map((item) => {
+
+                        const active =
+                          value === item;
+
+                        return (
+
+                          <TouchableOpacity
+                            key={item}
+                            style={[
+                              styles.sourceChip,
+                              active &&
+                              styles.sourceChipActive
+                            ]}
+                            onPress={() =>
+                              setValue(
+                                'source',
+                                item
+                              )
+                            }
+                          >
+
+                            <Text
+                              style={[
+                                styles.sourceChipText,
+                                active &&
+                                styles.sourceChipTextActive
+                              ]}
+                            >
+                              {item}
+                            </Text>
+
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                    </View>
+                  )}
+                />
+
+                {selectedSource === 'Other' && (
+
+                  <Controller
+                    control={control}
+                    name="custom_source"
+                    render={({
+                      field: {
+                        onChange,
+                        value
+                      }
+                    }) => (
+
+                      <TextInput
+                        style={[
+                          styles.textArea,
+                          { marginTop: 12 }
+                        ]}
+                        placeholder="Enter custom source"
+                        value={value}
+                        onChangeText={onChange}
+                        placeholderTextColor="#CBD5E1"
+                      />
+                    )}
+                  />
+                )}
+
               </View>
 
               {/* Company */}
@@ -1049,5 +1225,67 @@ const styles = StyleSheet.create({
   stageOptionTextActive: {
     fontWeight: '600',
     color: '#111827',
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+
+  avatarWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+
+  avatarPlaceholder: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 50,
+    borderStyle: 'dashed',
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  addPhotoText: {
+    color: '#2563EB',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  sourceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+
+  sourceChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+  },
+
+  sourceChipActive: {
+    backgroundColor: '#DBEAFE',
+  },
+
+  sourceChipText: {
+    color: '#475569',
+    fontWeight: '600',
+  },
+
+  sourceChipTextActive: {
+    color: '#2563EB',
+    fontWeight: '800',
   },
 });

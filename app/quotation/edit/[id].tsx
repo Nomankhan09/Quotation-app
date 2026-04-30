@@ -61,7 +61,7 @@ interface ISpecification {
 interface QuotationDetails {
   id: string;
   quotationNumber: string;
-  leadId: string;
+  leadId: number;
   products: any[];
   totalAmount: number;
   subtotal: number;
@@ -74,7 +74,10 @@ interface QuotationDetails {
   validUntil: string;
   created_at: string;
   notes?: string;
-  terms: string[];
+  terms: {
+    id: number;
+    text: string
+  }[];
   paymentTerms: any[];
   specifications?: ISpecification[];
 }
@@ -114,6 +117,7 @@ export default function QuotationDetailsScreen() {
       setQuotation(response.quotation || response);
     } catch (error) {
       Alert.alert('Error', 'Failed to load quotation details');
+      // console.log('err ', error.response);
     } finally {
       setLoading(false);
     }
@@ -165,9 +169,9 @@ export default function QuotationDetailsScreen() {
       }));
 
       if (quotation.terms && quotation.terms.length > 0) {
-        const termIds = allTerms
-          .filter(t => quotation.terms?.includes(t.text))
-          .map(t => t.id);
+        const termIds = quotation.terms.map(
+          (t: any) => Number(t.id)
+        );
 
         if (termIds.length > 0) {
           dispatch(setTerms(termIds));
@@ -216,6 +220,7 @@ export default function QuotationDetailsScreen() {
           company_name: lead.company_name,
           email: lead.email,
           phone: lead.phone,
+          location: lead?.location ? lead?.location : '',
           address: 'N/A',
           city: 'N/A',
         },
@@ -396,7 +401,7 @@ export default function QuotationDetailsScreen() {
     );
   }
 
-  const lead = leads.find(l => l.id == quotation.leadId);
+  const lead = leads.find(l => Number(l.id) == Number(quotation.leadId));
   const statusConfig = getStatusConfig(quotation.status);
   const StatusIcon = statusConfig.icon;
 
@@ -656,7 +661,7 @@ export default function QuotationDetailsScreen() {
               {quotation.terms.map((term, index) => (
                 <View key={index} style={styles.termItem}>
                   <View style={styles.termBullet} />
-                  <Text style={styles.termText}>{term}</Text>
+                  <Text style={styles.termText}>{term.text}</Text>
                 </View>
               ))}
             </View>
@@ -679,7 +684,7 @@ export default function QuotationDetailsScreen() {
                   key={spec.id}
                   style={[
                     styles.specItem,
-                    idx < quotation?.specifications.length - 1 && styles.specItemBorder,
+                    idx < (quotation?.specifications?.length || 0) - 1 && styles.specItemBorder,
                   ]}
                 >
                   {/* Bullet + Title row */}

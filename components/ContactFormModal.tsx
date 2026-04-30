@@ -9,9 +9,14 @@ import {
 } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import { X } from "lucide-react-native";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { addLead, editLead } from "@/store/slices/leadsSlice";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { RootState } from "@/store";
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+import { Camera } from 'lucide-react-native';
+import { SOURCE_OPTIONS } from "@/constants/constant";
 
 export default function ContactFormModal({
     visible,
@@ -40,43 +45,154 @@ export default function ContactFormModal({
             job_title: "",
             email: "",
             phone: "",
-            stage: "Lead",
+            stage: "New",
             location: "",
             notes: "",
+            source: "",
+            custom_source: "",
+            profile_image: "",
         },
     });
 
     const [showStagePicker, setShowStagePicker] = useState(false);
     const dispatch = useDispatch<any>();
+    const selectedSource = watch('source');
+    const profileImage = watch('profile_image');
+
+    // image selection
+    const pickImage = async () => {
+
+        const permission =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permission.granted) {
+            return;
+        }
+
+        const result =
+            await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.7,
+                base64: true,
+            });
+
+        if (!result.canceled) {
+
+            const asset = result.assets[0];
+
+            const base64Image =
+                `data:image/jpeg;base64,${asset.base64}`;
+
+            setValue(
+                'profile_image',
+                base64Image
+            );
+        }
+    };
 
     // RESET ON OPEN (ADD + EDIT)
     useEffect(() => {
-        if (visible && defaultValues) {
-            reset(
-                defaultValues || {
+
+        if (visible) {
+
+            if (defaultValues) {
+
+                reset({
+                    full_name:
+                        defaultValues.full_name || "",
+
+                    company_name:
+                        defaultValues.company_name || "",
+
+                    job_title:
+                        defaultValues.job_title || "",
+
+                    email:
+                        defaultValues.email === "NA"
+                            ? ""
+                            : defaultValues.email || "",
+
+                    phone:
+                        defaultValues.phone || "",
+
+                    stage:
+                        defaultValues.stage || "New",
+
+                    location:
+                        defaultValues.location || "",
+
+                    notes:
+                        defaultValues.notes || "",
+
+                    source:
+                        SOURCE_OPTIONS.includes(
+                            defaultValues.source
+                        )
+                            ? defaultValues.source
+                            : defaultValues.source
+                                ? 'Other'
+                                : "",
+
+                    custom_source:
+                        SOURCE_OPTIONS.includes(
+                            defaultValues.source
+                        )
+                            ? ""
+                            : defaultValues.source || "",
+
+                    // IMPORTANT
+                    profile_image:
+                        defaultValues.profile_image_url ||
+                        defaultValues.profile_image ||
+                        "",
+                });
+
+            } else {
+
+                reset({
                     full_name: "",
                     company_name: "",
                     job_title: "",
                     email: "",
                     phone: "",
-                    stage: "Lead",
+                    stage: "New",
                     location: "",
                     notes: "",
-                }
-            );
+                    source: "",
+                    custom_source: "",
+                    profile_image: "",
+                });
+            }
         }
+
     }, [visible, defaultValues]);
 
     const onSubmit = (data: any) => {
         try {
-            if (!data.email) data.email = "NA";
+            const finalSource =
+                data.source === 'Other'
+                    ? data.custom_source
+                    : data.source;
+
+            const payload = {
+                ...data,
+                source: finalSource,
+            };
+
+            delete payload.custom_source;
+
+            if (!payload.email) {
+                payload.email = "NA";
+            }
 
             if (mode === "add") {
-                dispatch(addLead(data));
+                dispatch(addLead(payload));
             } else {
-                console.log("Updating contact with data:", data);
-                dispatch(editLead(data));
+                dispatch(editLead({ ...payload, id: defaultValues.id }));
             }
+
             onClose();
             reset();
         } catch (err) {
@@ -121,6 +237,38 @@ export default function ContactFormModal({
                         enableOnAndroid={true}
                         keyboardShouldPersistTaps="handled"
                     >
+
+                        {/* Profile Image */}
+                        <View style={styles.avatarSection}>
+
+                            <TouchableOpacity
+                                style={styles.avatarWrapper}
+                                onPress={pickImage}
+                            >
+
+                                {profileImage ? (
+
+                                    <Image
+                                        source={{ uri: profileImage }}
+                                        style={styles.avatarImage}
+                                    />
+
+                                ) : (
+
+                                    <View style={styles.avatarPlaceholder}>
+                                        <Camera size={28} color="#64748B" />
+                                    </View>
+                                )}
+
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={pickImage}>
+                                <Text style={styles.addPhotoText}>
+                                    Add Photo
+                                </Text>
+                            </TouchableOpacity>
+
+                        </View>
 
                         {/* FULL NAME */}
                         <View style={styles.fieldWrapper}>
@@ -297,6 +445,70 @@ export default function ContactFormModal({
                                     </View>
                                 )}
                             />
+                        </View>
+
+                        {/* Source */}
+                        <View style={styles.fieldWrapper}>
+                            <Text style={styles.label}>Lead Source</Text>
+
+                            <Controller
+                                control={control}
+                                name="source"
+                                render={({ field: { value } }) => (
+
+                                    <View style={styles.sourceWrap}>
+
+                                        {SOURCE_OPTIONS.map((item) => {
+
+                                            const active = value === item;
+
+                                            return (
+                                                <TouchableOpacity
+                                                    key={item}
+                                                    style={[
+                                                        styles.sourceChip,
+                                                        active &&
+                                                        styles.sourceChipActive
+                                                    ]}
+                                                    onPress={() =>
+                                                        setValue('source', item)
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.sourceChipText,
+                                                            active &&
+                                                            styles.sourceChipTextActive
+                                                        ]}
+                                                    >
+                                                        {item}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                )}
+                            />
+
+                            {selectedSource === 'Other' && (
+
+                                <Controller
+                                    control={control}
+                                    name="custom_source"
+                                    render={({ field: { onChange, value } }) => (
+
+                                        <TextInput
+                                            style={[
+                                                styles.input,
+                                                { marginTop: 10 }
+                                            ]}
+                                            placeholder="Enter custom source"
+                                            value={value}
+                                            onChangeText={onChange}
+                                        />
+                                    )}
+                                />
+                            )}
                         </View>
 
                         {/* COMPANY */}
@@ -531,5 +743,66 @@ const styles = StyleSheet.create({
         borderColor: '#E2E8F0',
         minHeight: 100,
         textAlignVertical: 'top',
+    },
+    avatarSection: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+
+    avatarWrapper: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        overflow: 'hidden',
+        marginBottom: 10,
+    },
+
+    avatarPlaceholder: {
+        flex: 1,
+        backgroundColor: '#F1F5F9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        borderRadius: 50,
+        borderStyle: 'dashed',
+    },
+
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+    },
+
+    addPhotoText: {
+        color: '#2563EB',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+
+    sourceWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+
+    sourceChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 999,
+        backgroundColor: '#F1F5F9',
+    },
+
+    sourceChipActive: {
+        backgroundColor: '#DBEAFE',
+    },
+
+    sourceChipText: {
+        color: '#475569',
+        fontWeight: '500',
+    },
+
+    sourceChipTextActive: {
+        color: '#2563EB',
+        fontWeight: '700',
     },
 });

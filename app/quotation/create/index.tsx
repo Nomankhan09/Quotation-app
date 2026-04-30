@@ -39,6 +39,7 @@ import { getQuotations } from '@/store/slices/quotationsSlice';
 import { getRoman } from '@/utils/roman_number';
 import type { AppDispatch } from '@/store';
 import { QUOTATION_STAGES } from '@/constants/constant';
+import Avatar from '@/utils/avatar';
 
 export default function CreateQuotationIndex() {
   const dispatch = useDispatch<AppDispatch>()
@@ -59,7 +60,6 @@ export default function CreateQuotationIndex() {
   const selectedSpecifications = qb.selectedSpecifications || []; // selected ids
   const allPaymentTerms = qb.paymentTerms || [];
   const selectedPaymentTerms = qb.selectedPaymentTerms || [];
-
   const isEditMode = qb.isEditMode || false;
   const editingQuotationId = qb.editingQuotationId || null;
 
@@ -91,7 +91,7 @@ export default function CreateQuotationIndex() {
     if (!isEditMode && allSpecifications.length > 0) {
       const allIds = allSpecifications.map(s => String(s.id));
 
-      dispatch(setSpecifications(allIds)); // ✅ select ALL by default
+      dispatch(setSpecifications(allIds));
     }
   }, [isEditMode, allSpecifications]);
 
@@ -219,9 +219,9 @@ export default function CreateQuotationIndex() {
       discountAmount: getDiscountAmount(),
       totalAmount: total,
       specifications: selectedSpecifications,
-      terms: allTerms
-        .filter((t: { id: any; }) => selectedTerms.includes(t.id))
-        .map((t: { text: any; }) => t.text),
+      terms: allTerms.filter((t: any) =>
+        selectedTerms.includes(t.id)
+      ),
       paymentTerms: allPaymentTerms.filter((p: { id: any }) =>
         selectedPaymentTerms.includes(p.id)
       ),
@@ -229,7 +229,6 @@ export default function CreateQuotationIndex() {
     };
 
     const html = generateQuotationHTML(quotationData, allSpecifications);
-
 
     router.push({
       pathname: '/quotation/create/html-preview',
@@ -264,12 +263,8 @@ export default function CreateQuotationIndex() {
           stage,
           totalAmount: total,
           specifications: selectedSpecifications,
-          terms: allTerms
-            .filter((t: { id: any; }) => selectedTerms.includes(t.id))
-            .map((t: { text: any; }) => t.text),
-          paymentTerms: allPaymentTerms.filter((p: { id: any }) =>
-            selectedPaymentTerms.includes(p.id)
-          ),
+          terms: selectedTerms,
+          paymentTerms: selectedPaymentTerms,
         };
 
         if (!token) {
@@ -350,9 +345,12 @@ export default function CreateQuotationIndex() {
             activeOpacity={0.7}
           >
             <View style={styles.clientCardContent}>
-              <View style={styles.clientIcon}>
-                <User size={24} color="#3B82F6" />
-              </View>
+              {selectedClient ?
+                <Avatar height={45} width={45} item={selectedClient} />
+                : <View style={styles.clientIcon}>
+                  <User size={24} color="#3B82F6" />
+                </View>
+              }
 
               {selectedClient ? (
                 <View style={styles.clientInfo}>

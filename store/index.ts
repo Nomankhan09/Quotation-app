@@ -11,6 +11,7 @@ import quotationsSlice from './slices/quotationsSlice';
 import quotationBuilderSlice from './slices/quotationBuilderSlice';
 import dashboardSlice from './slices/dashboardSlice';
 import specificationsSlice from './slices/specificationsSlice';
+import contactStatusReducer from './slices/contactStatusSlice';
 
 // Persist config
 const persistConfig = {
@@ -30,6 +31,7 @@ const rootReducer = combineReducers({
   quotationBuilder: quotationBuilderSlice,
   dashboard: dashboardSlice,
   specifications: specificationsSlice,
+  contactStatus: contactStatusReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

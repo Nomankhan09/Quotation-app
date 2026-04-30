@@ -1,5 +1,5 @@
 // ContactDetailScreen.tsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   StatusBar,
   Linking,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +16,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '@/utils/avatar';
 import { StageBadge } from '@/utils/stageBadge';
 import ContactFormModal from '@/components/ContactFormModal';
-import { STAGES } from '@/constants/constant';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { ICallLog } from '@/interface/callLogs';
 import TaskBottomSheet from '@/components/Task';
 import LeadFollowUps from './LeadFollowUps';
+import { editLead } from '@/store/slices/leadsSlice';
+import StatusPickerModal from '@/components/StatusPickerModal';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
@@ -37,12 +37,18 @@ const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
 const ContactDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const dispatch = useDispatch<any>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('Overview');
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [showTaskSheet, setShowTaskSheet] = React.useState(false);
+  const [showStatusModal, setShowStatusModal] = React.useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
   const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
   const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
+  const { statuses } = useSelector(
+    (state: RootState) => state.contactStatus
+  );
 
   const contact = useSelector((state: RootState) => {
     const contactParam = JSON.parse(route.params?.contact);
@@ -56,6 +62,11 @@ const ContactDetailScreen = () => {
       </View>
     );
   }
+
+  // contact status
+  const currentStatus = statuses.find(
+    (s) => s.status === contact?.stage
+  );
 
   // ─── Call Log Helpers ───────────────────────────────────────────────────────
   const getCallStyle = (type: string) => {
@@ -84,6 +95,38 @@ const ContactDetailScreen = () => {
       d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
       ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     );
+  };
+
+  // update status
+  const handleStatusChange = async (
+    status: string
+  ) => {
+
+    try {
+      setIsUpdatingStatus(true);
+      await dispatch(
+        editLead({
+          id: contact.id,
+          full_name: contact.full_name || '',
+          company_name: contact.company_name || '',
+          email: contact.email || '',
+          phone: contact.phone || '',
+          notes: contact.notes || '',
+          location: contact.location || '',
+          stage: status,
+        })
+      ).unwrap();
+      setShowStatusModal(false);
+
+    } catch (e) {
+      console.log(
+        'Status update error',
+        e
+      );
+
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   // const requestCallLogPermission = async () => {
@@ -161,8 +204,8 @@ const ContactDetailScreen = () => {
   // ─── Lead Score ─────────────────────────────────────────────────────────────
 
   const leadScore = 82; // Replace with contact.lead_score when available
-  const nextAction = contact.next_action || 'Call';
-  const nextActionDate = contact.next_action_date || 'Apr 16';
+  // const nextAction = contact.next_action || 'Call';
+  // const nextActionDate = contact.next_action_date || 'Apr 16';
 
   // Score ring
   const circumference = 2 * Math.PI * 28;
@@ -365,11 +408,24 @@ const ContactDetailScreen = () => {
         <View style={styles.heroInfo}>
           <Text style={styles.heroName}>{contact.full_name}</Text>
           <View style={styles.heroTags}>
-            {contact?.stage && <StageBadge stage={contact.stage} size={4} />}
-            {/* <View style={[styles.badge, { backgroundColor: '#fee2e2', marginLeft: 6 }]}>
+            {contact?.stage && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() =>
+                  setShowStatusModal(true)
+                }
+              >
+                <StageBadge
+                  stage={contact.stage}
+                  color={currentStatus?.color}
+                  size={4}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* <View style={[styles.badge, { backgroundColor: '#fee2e2', marginLeft: 6 }]}>
               <Text style={[styles.badgeText, { color: '#ef4444' }]}>Hot</Text>
             </View> */}
-          </View>
           {contact?.company &&
             <Text style={styles.heroSub}>
               {contact.title}{contact.company ? ` · ${contact.company}` : ''}
@@ -411,7 +467,7 @@ const ContactDetailScreen = () => {
         visible={showEditModal}
         mode="edit"
         defaultValues={contact}
-        STAGES={STAGES}
+        STAGES={statuses?.map((status) => status.status)}
         onClose={() => setShowEditModal(false)}
       />
 
@@ -421,6 +477,18 @@ const ContactDetailScreen = () => {
         onClose={() => setShowTaskSheet(false)}
         contact={contact}
         onSave={(data) => console.log('Saved:', data)}
+      />
+
+      {/* For change status */}
+      <StatusPickerModal
+        visible={showStatusModal}
+        onClose={() =>
+          setShowStatusModal(false)
+        }
+        statuses={statuses}
+        currentStatus={contact.stage}
+        loading={isUpdatingStatus}
+        onSelect={handleStatusChange}
       />
     </SafeAreaView>
   );

@@ -219,23 +219,23 @@ export default function CreateQuotationIndex() {
     setDiscountValue(String(reduxDiscount.value || '0'));
   }, [reduxDiscount]);
 
-  useEffect(() => {
-    if (!isEditMode) return;
-    if (!selectedLead) return;
-    if (!Array.isArray(leads) || leads.length === 0) return;
+  // useEffect(() => {
+  //   if (!isEditMode) return;
+  //   if (!selectedLead) return;
+  //   if (!Array.isArray(leads) || leads.length === 0) return;
 
-    const client = leads.find(l => l.id === selectedLead);
+  //   const client = leads.find(l => l.id === selectedLead);
 
-    if (!client) {
-      console.warn('⚠️ Lead ID exists but not found in leads list', selectedLead);
-    }
-  }, [leads, selectedLead, isEditMode]);
+  //   if (!client) {
+  //     console.warn('⚠️ Lead ID exists but not found in leads list', selectedLead);
+  //   }
+  // }, [leads, selectedLead, isEditMode]);
 
-  useFocusEffect(
-    useCallback(() => {
-      dispatch(resetForNewQuotation());
-    }, [])
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     dispatch(resetForNewQuotation());
+  //   }, [])
+  // );
 
   const selectedClient = leads.find((l: { id: any; }) => l.id === selectedLead);
 

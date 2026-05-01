@@ -211,7 +211,7 @@ export const generateQuotationHTML = (quotationData: QuotationData, specificatio
     ?.map((spec, index) => {
       const specObj =
         typeof spec === "string" || typeof spec === "number"
-          ? specifications.find((s) => s.id == spec)
+          ? specifications.find((s: any) => s.id == spec)
           : spec;
 
       // ✅ IMPORTANT: guard here
@@ -331,7 +331,7 @@ export const generateQuotationHTML = (quotationData: QuotationData, specificatio
             <div style="flex: 1;">
                 <div style="font-size: 20px; font-weight: bold; margin-bottom: 6px;">To,</div>
                 <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.full_name}</div>
-                <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.location}</div>
+                <div style="font-size: 19px; margin-bottom: 4px;">${quotationData.lead.location ?? ''}</div>
                 ${quotationData.lead.phone ? `
                 <div style="margin-bottom: 3px; font-size: 19px;">
                     <span>${quotationData.lead.phone}</span>

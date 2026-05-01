@@ -7,4 +7,5 @@ export interface ILead {
     phone: string;
     stage?: string;
     location: string;
+    company?: string;
 }

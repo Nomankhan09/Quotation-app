@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  InteractionManager,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { AppDispatch } from "@/store";
@@ -232,8 +233,10 @@ export default function QuotationsScreen() {
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => {
-              dispatch(resetForNewQuotation());
               router.push("/quotation/create");
+              // InteractionManager.runAfterInteractions(() => {
+              //   dispatch(resetForNewQuotation());
+              // });
             }}
             activeOpacity={0.8}
           >

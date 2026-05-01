@@ -14,6 +14,7 @@ import { logout } from '@/store/slices/authSlice';
 import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mail, Phone, Building, FileText, FileTextIcon } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { resetBuilder } from '@/store/slices/quotationBuilderSlice';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function SettingsScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -104,7 +105,21 @@ export default function SettingsScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={22} color="#007AFF" />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+
+        {/* Center Title */}
+        <Text style={styles.title} pointerEvents="none">Settings</Text>
+
+        {/* Right spacer (keeps title perfectly centered) */}
+        <View style={{ width: 60 }} />
       </View>
 
       {/* User Profile Card */}
@@ -179,21 +194,37 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
+  container: { flex: 1, backgroundColor: '#F8FAFC', },
   header: {
-    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 16,
+    backgroundColor: '#fff',
   },
+
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    alignItems: 'center',
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
     color: '#1E293B',
   },
+
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  backText: {
+    fontSize: 15,
+    color: '#007AFF',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+
   profileCard: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 24,

@@ -1,14 +1,14 @@
 // ContactDetailScreen.tsx
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   StatusBar,
   Linking,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,13 +19,23 @@ import ContactFormModal from '@/components/ContactFormModal';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { ICallLog } from '@/interface/callLogs';
-import TaskBottomSheet from '@/components/Task';
 import LeadFollowUps from './LeadFollowUps';
 import { editLead } from '@/store/slices/leadsSlice';
 import StatusPickerModal from '@/components/StatusPickerModal';
+import LeadNotes from './LeadNotes';
+import LeadActivity from './LeadActivity';
+import LeadTasks from './LeadTask';
+import { Lead } from '@/store/slices/leadsSlice';
+import { AppState } from 'react-native';
+import { Modal } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
+type CallLogForm = {
+  type: 'INCOMING' | 'OUTGOING' | 'MISSED';
+  duration: string;
+};
 
 // const SCORE_BREAKDOWN = [
 //   { label: 'Engagement', value: 88, color: '#22c55e' },
@@ -37,6 +47,7 @@ const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
 const ContactDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const callInitiatedRef = useRef(false);
   const dispatch = useDispatch<any>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('Overview');
   const [showEditModal, setShowEditModal] = React.useState(false);
@@ -45,13 +56,31 @@ const ContactDetailScreen = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
   const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
+  const [showCallLogSheet, setShowCallLogSheet] = React.useState<boolean>(false);
   const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
   const { statuses } = useSelector(
     (state: RootState) => state.contactStatus
   );
+  const appState = useRef(AppState.currentState);
+
+  // for adding call log
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors }
+  } = useForm<CallLogForm>({
+    defaultValues: {
+      type: 'OUTGOING',
+      duration: '',
+    },
+  });
+  const selectedType = watch('type');
 
   const contact = useSelector((state: RootState) => {
-    const contactParam = JSON.parse(route.params?.contact);
+    const contactParam = JSON.parse((route.params as any)?.contact);
     return state.leads.leads.find(l => l?.id?.toString() === contactParam.id?.toString());
   });
 
@@ -180,12 +209,65 @@ const ContactDetailScreen = () => {
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
   };
 
+  // google meet
+  const openGoogleMeet = async () => {
+    const url = 'https://meet.google.com/';
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      console.log('Cannot open Meet');
+    }
+  };
+
+  // call log thing
+  // useEffect(() => {
+  //   const sub = AppState.addEventListener('change', nextState => {
+  //     if (
+  //       appState.current.match(/inactive|background/) &&
+  //       nextState === 'active' &&
+  //       callInitiatedRef.current
+  //     ) {
+  //       setShowCallLogSheet(true);
+
+  //       // reset flag
+  //       callInitiatedRef.current = false;
+  //     }
+
+  //     appState.current = nextState;
+  //   });
+
+  //   return () => sub.remove();
+  // }, []);
+
+  const handleSaveCallLog = (data: CallLogForm) => {
+    console.log('data', data);
+    // dispatch(addCallLog({
+    //   contact_id: contact.id,
+    //   type: callType,
+    //   duration: Number(duration),
+    //   timestamp: Date.now().toString(),
+    // }));
+
+    setShowCallLogSheet(false);
+  };
+
   // ─── Actions ────────────────────────────────────────────────────────────────
 
   const actions = [
     {
       label: 'Call', icon: 'call', bg: '#D6ECFF', text: '#1E88E5',
-      onPress: () => Linking.openURL(`tel:${contact.phone || ''}`),
+      onPress: async () => {
+        const phone = contact.phone || '';
+        if (!phone) return;
+
+        // Open dialer
+        callInitiatedRef.current = true;
+
+        await Linking.openURL(`tel:${phone}`);
+      }
     },
     {
       label: 'Email', icon: 'mail', bg: '#DFF7E3', text: '#2E7D32',
@@ -197,7 +279,7 @@ const ContactDetailScreen = () => {
     },
     {
       label: 'Meet', icon: 'calendar', bg: '#EDE7F6', text: '#5E35B1',
-      onPress: () => console.log('Open Meet'),
+      onPress: openGoogleMeet
     },
   ];
 
@@ -289,7 +371,7 @@ const ContactDetailScreen = () => {
         {[
           ['Email', contact.email],
           ['Phone', '+91 ' + contact.phone],
-          ['Location', contact.location],
+          ['Location', contact?.location],
           ['Source', contact.source],
         ].map(([label, value], i, arr) => (
           <View key={i} style={[styles.infoRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
@@ -298,6 +380,14 @@ const ContactDetailScreen = () => {
           </View>
         ))}
       </View>
+
+      {/* Additional notes */}
+      {contact.notes &&
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Additional Notes</Text>
+          <Text>{contact.notes}</Text>
+        </View>
+      }
 
       {/* Call History (inline) */}
       <View style={styles.card}>
@@ -375,11 +465,10 @@ const ContactDetailScreen = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Overview': return renderOverview();
-      // case 'Follow-ups': return renderEmptyTab('follow-ups');
       case 'Follow-ups': return <LeadFollowUps lead={contact} />;
-      case 'Notes': return renderEmptyTab('notes');
-      case 'Activity': return renderEmptyTab('activity');
-      case 'Tasks': return renderEmptyTab('tasks');
+      case 'Notes': return <LeadNotes lead={contact} />;
+      case 'Activity': return <LeadActivity lead={contact} />;
+      case 'Tasks': return <LeadTasks lead={{ ...contact, id: Number(contact.id) }} />;
     }
   };
 
@@ -428,7 +517,7 @@ const ContactDetailScreen = () => {
             </View> */}
           {contact?.company &&
             <Text style={styles.heroSub}>
-              {contact.title}{contact.company ? ` · ${contact.company}` : ''}
+              {contact.job_title}{contact.company_name ? ` · ${contact.company_name}` : ''}
             </Text>
           }
         </View>
@@ -455,12 +544,11 @@ const ContactDetailScreen = () => {
       </View>
 
       {/* Tab content */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+      <View
+        style={{ flex: 1 }}
       >
         {renderTabContent()}
-      </ScrollView>
+      </View>
 
       {/* Edit Modal */}
       <ContactFormModal
@@ -472,12 +560,12 @@ const ContactDetailScreen = () => {
       />
 
       {/* Task Sheet */}
-      <TaskBottomSheet
+      {/* <TaskBottomSheet
         open={showTaskSheet}
         onClose={() => setShowTaskSheet(false)}
         contact={contact}
         onSave={(data) => console.log('Saved:', data)}
-      />
+      /> */}
 
       {/* For change status */}
       <StatusPickerModal
@@ -490,6 +578,111 @@ const ContactDetailScreen = () => {
         loading={isUpdatingStatus}
         onSelect={handleStatusChange}
       />
+      {/* Call log modal */}
+      <Modal
+        visible={showCallLogSheet}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Log Call</Text>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCallLogSheet(false);
+                  reset();
+                }}
+              >
+                <Ionicons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Call Type */}
+            <Controller
+              control={control}
+              name="type"
+              render={({ field: { value, onChange } }) => (
+                <View style={styles.typeRow}>
+                  {['INCOMING', 'OUTGOING', 'MISSED'].map(type => (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => onChange(type)}
+                      style={[
+                        styles.option,
+                        value === type && styles.activeOption,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.optionText,
+                          value === type && styles.activeOptionText,
+                        ]}
+                      >
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            />
+
+            {/* Duration */}
+            <Controller
+              control={control}
+              name="duration"
+              rules={{ required: 'Duration is required' }}
+              render={({ field: { value, onChange } }) => (
+                <>
+                  <TextInput
+                    placeholder="Duration in seconds"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={onChange}
+                    style={[
+                      styles.modalInput,
+                      errors.duration && { borderColor: '#ef4444' },
+                    ]}
+                  />
+
+                  {errors.duration && (
+                    <Text style={styles.errorText}>
+                      {errors.duration.message}
+                    </Text>
+                  )}
+                </>
+              )}
+            />
+
+            {/* Buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => {
+                  setShowCallLogSheet(false);
+                  reset();
+                }}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSubmit((data) => {
+                  handleSaveCallLog(data);
+                  reset();
+                })}
+              >
+                <Text style={styles.saveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -642,11 +835,164 @@ const styles = StyleSheet.create({
   },
   durFill: { height: '100%', borderRadius: 2 },
 
-  emptyWrap: { alignItems: 'center', paddingVertical: 24 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 20 },
   emptyText: { fontSize: 14, color: '#ccc', marginTop: 8 },
 
   emptyTab: { alignItems: 'center', marginTop: 60 },
   emptyTabText: { fontSize: 15, color: '#ccc', marginTop: 10 },
+
+  // call log form
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 30,
+  },
+
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e7eb',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+
+  typeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+
+  option: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+
+  activeOption: {
+    backgroundColor: '#dbeafe',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+
+  optionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+
+  activeOptionText: {
+    color: '#3b82f6',
+    fontWeight: '700',
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 8,
+  },
+
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginBottom: 10,
+  },
+ 
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#111827',
+    marginTop: 4,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6b7280',
+  },
+
+  saveBtn: {
+    flex: 1,
+    backgroundColor: '#6366f1',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+
+  saveText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
 });
 
 export default ContactDetailScreen;

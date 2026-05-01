@@ -10,13 +10,14 @@ export interface Lead {
   company_name: string;
   created_at: string;
   notes?: string;
-  location?: string;
-  stage?: string;
-  source?: string;
   company?: string;
   title?: string;
   profile_image?: string;
   profile_image_url?: string;
+  job_title?: string;
+  stage?: string;
+  location?: string;
+  source?: string;
 }
 
 interface LeadsState {

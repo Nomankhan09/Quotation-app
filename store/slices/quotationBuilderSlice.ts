@@ -38,7 +38,6 @@ interface QuotationBuilderState {
   selectedLead: number | null;
   selectedProducts: SelectedProduct[];
   discount: Discount;
-  stage: string;
   terms: Term[];
   selectedTerms: number[];
   allSpecifications: any[];
@@ -48,17 +47,17 @@ interface QuotationBuilderState {
   loading: boolean;
   termsInitialized: boolean;
   paymentTermsInitialized: boolean;
-  // currentStep: 'select-lead' | 'select-products' | 'configure-products' | 'discount' | 'terms' | 'payment-terms' | null;
+  currentStep: 'select-lead' | 'select-products' | 'configure-products' | 'discount' | 'terms' | 'payment-terms' | null;
   isEditMode: boolean;
   editingQuotationId: string | null;
   prefillData: any | null;
+  previewQuotation: any | null;
 }
 
 const initialState: QuotationBuilderState = {
   selectedLead: null,
   selectedProducts: [],
   discount: { type: 'percentage', value: 0 },
-  stage: 'Proposal',
   terms: [],
   selectedTerms: [],
   paymentTerms: [],
@@ -68,10 +67,11 @@ const initialState: QuotationBuilderState = {
   paymentTermsInitialized: false,
   allSpecifications: [],
   selectedSpecifications: [],
-  // currentStep: null,
+  currentStep: null,
   isEditMode: false,
   editingQuotationId: null,
   prefillData: null,
+  previewQuotation: null,
 };
 
 // Async thunks for terms
@@ -88,6 +88,7 @@ export const loadAllTerms = createAsyncThunk(
       const data = await fetchTerms(token);
       return data.data || data;
     } catch (err: any) {
+      console.log('load terms -> ', err.response);
       return rejectWithValue(err.response?.data || err.message);
     }
   }
@@ -227,17 +228,16 @@ const quotationBuilderSlice = createSlice({
     setSpecifications: (state, action: PayloadAction<string[]>) => {
       state.selectedSpecifications = action.payload || [];
     },
-    setStage: (state, action: PayloadAction<string>) => {
-      state.stage = action.payload;
-    },
     saveQuotation: (state, action: PayloadAction<any>) => {
       // Reset builder state after saving
       state.selectedLead = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
-      state.stage = 'Proposal';
       state.selectedTerms = [];
       state.selectedPaymentTerms = [];
+    },
+    setPreviewQuotation: (state, action: PayloadAction<any>) => {
+      state.previewQuotation = action.payload;
     },
     resetBuilder: (state, action: PayloadAction<{ force?: boolean } | undefined>) => {
       const force = action?.payload?.force ?? false;
@@ -245,7 +245,6 @@ const quotationBuilderSlice = createSlice({
         state.selectedLead = null;
         state.selectedProducts = [];
         state.discount = { type: 'percentage', value: 0 };
-        state.stage = 'Proposal';
         state.selectedTerms = state.terms.map(t => t.id);
         state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
 
@@ -267,7 +266,6 @@ const quotationBuilderSlice = createSlice({
       state.selectedLead = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
-      state.stage = 'Proposal';
       state.selectedTerms = state.terms.map(t => t.id);
       state.selectedPaymentTerms = state.paymentTerms.map(p => p.id);
       // state.currentStep = 'select-lead';
@@ -281,9 +279,9 @@ const quotationBuilderSlice = createSlice({
       state.termsInitialized = false;
       state.paymentTermsInitialized = false;
     },
-    // setCurrentStep: (state, action: PayloadAction<QuotationBuilderState['currentStep']>) => {
-    //   state.currentStep = action.payload;
-    // },
+    setCurrentStep: (state, action: PayloadAction<QuotationBuilderState['currentStep']>) => {
+      state.currentStep = action.payload;
+    },
 
     setEditMode: (state, action: PayloadAction<{
       isEditMode: boolean;
@@ -295,7 +293,6 @@ const quotationBuilderSlice = createSlice({
       state.editingQuotationId = action.payload.quotationId || null;
       state.prefillData = action.payload.prefillData || null;
       state.selectedSpecifications = action.payload.prefillData?.specifications || [];
-      state.stage = action.payload.prefillData?.stage || '';
       const specs = action.payload.prefillData?.specifications || [];
       state.selectedSpecifications = specs.map((s: any) => String(s.id));
 
@@ -318,7 +315,21 @@ const quotationBuilderSlice = createSlice({
       })
       .addCase(loadAllTerms.fulfilled, (state, action) => {
         state.loading = false;
-        state.terms = action.payload;
+        const terms = action.payload || [];
+        state.terms = terms;
+
+        if (state.isEditMode) {
+          const preselected = state.prefillData?.terms || [];
+          const ids = preselected.map((t: any) => Number(t.id));
+
+          state.selectedTerms = terms
+            .map((t: any) => Number(t.id))
+            .filter((id: string) => ids.includes(id));
+        } else {
+          // default → select all
+          state.selectedTerms = terms.map((t: any) => Number(t.id));
+        }
+
         state.termsInitialized = true;
       })
       .addCase(loadAllTerms.rejected, (state) => {
@@ -335,7 +346,20 @@ const quotationBuilderSlice = createSlice({
       })
       .addCase(loadAllPaymentTerms.fulfilled, (state, action) => {
         state.loading = false;
-        state.paymentTerms = action.payload;
+        const terms = action.payload || [];
+
+        state.paymentTerms = terms;
+
+        if (state.isEditMode) {
+          const preselected = state.prefillData?.paymentTerms || [];
+          const ids = preselected.map((p: any) => String(p.id));
+
+          state.selectedPaymentTerms = terms
+            .map((p: any) => String(p.id))
+            .filter((id: string) => ids.includes(id));
+        } else {
+          state.selectedPaymentTerms = terms.map((p: any) => Number(p.id));
+        }
         state.paymentTermsInitialized = true;
       })
       .addCase(loadAllPaymentTerms.rejected, (state) => {
@@ -381,7 +405,7 @@ const quotationBuilderSlice = createSlice({
           state.selectedSpecifications = validIds;
         } else {
           // ✅ New quotation: auto-select all by default
-          state.selectedSpecifications = specs.map((s: any) => s.id);
+          state.selectedSpecifications = specs.map((s: any) => String(s.id));
         }
       })
       .addCase(loadAllSpecifications.rejected, (state) => {
@@ -396,16 +420,16 @@ export const {
   updateProductConfig,
   setDiscount,
   setTerms,
-  setStage,
   setPaymentTerms,
   saveQuotation,
   resetBuilder,
   clearTermsAndPaymentTerms,
-  // setCurrentStep,
+  setCurrentStep,
   setEditMode,
   resetForNewQuotation,
   setSpecifications,
   addSpecification,
+  setPreviewQuotation
 } = quotationBuilderSlice.actions;
 
 export default quotationBuilderSlice.reducer;

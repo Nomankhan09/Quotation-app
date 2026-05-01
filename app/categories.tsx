@@ -16,10 +16,13 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import { addCategory, Category, editCategory, setCategorySearch } from '@/store/slices/categoriesSlice';
 import { Plus, X, Grid3x3 as Grid3X3 } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function CategoriesScreen() {
   const { categories, search } = useSelector((state: RootState) => state.categories);
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -139,15 +142,26 @@ export default function CategoriesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Back button */}
       <View style={styles.header}>
+
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => { router.back() }}>
+          <Ionicons name="chevron-back" size={22} color="#007AFF" />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
+
+        {/* Center Title */}
         <Text style={styles.title}>Categories</Text>
+
+        {/* Add Button */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowAddModal(true)}
         >
           <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
+
       </View>
 
       {/* Search Bar */}
@@ -261,18 +275,37 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
     backgroundColor: '#FFFFFF',
   },
+
   title: {
-    fontSize: 24,
+    position: 'absolute', // 👈 key
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1E293B',
   },
+
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 999,
+    elevation: 10,
+  },
+
+  backText: {
+    color: '#007AFF',
+    fontSize: 16,
+    marginLeft: 2,
+  },
+
   addButton: {
     backgroundColor: '#3B82F6',
     width: 40,

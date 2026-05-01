@@ -50,7 +50,6 @@ import {
   SelectedProduct,
   setSpecifications,
   addSpecification,
-  setStage,
 } from '@/store/slices/quotationBuilderSlice';
 import { saveQuotation, editQuotation } from '@/store/slices/quotationsSlice';
 import {
@@ -58,7 +57,6 @@ import {
   addCustomPaymentTerm
 } from '@/store/slices/quotationBuilderSlice';
 import { createSpecification } from '@/services/specificationsService';
-import { QUOTATION_STAGES } from '@/constants/constant';
 
 export default function CreateQuotationCompactScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -75,7 +73,6 @@ export default function CreateQuotationCompactScreen() {
     selectedProducts,
     discount,
     terms,
-    stage,
     selectedTerms,
     paymentTerms,
     selectedPaymentTerms,
@@ -91,7 +88,6 @@ export default function CreateQuotationCompactScreen() {
   const [showPaymentTermModal, setShowPaymentTermModal] = useState(false);
   const [showSpecificationModal, setShowSpecificationModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showStagePicker, setShowStagePicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -392,7 +388,6 @@ export default function CreateQuotationCompactScreen() {
         discountAmount: parseFloat(getDiscountAmount().toFixed(2)),
         totalAmount: parseFloat(getFinalTotal().toFixed(2)),
         terms: selectedTerms,
-        stage,
         paymentTerms: selectedPaymentTerms,
         specifications: selectedSpecifications,
         status: "sent",
@@ -494,48 +489,6 @@ export default function CreateQuotationCompactScreen() {
               <Plus size={20} color="#3B82F6" />
               <Text style={styles.addCardText}>Select Client</Text>
             </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Stage Indicator */}
-        <View style={styles.fieldWrapper}>
-          <Text style={styles.label}>Stage *</Text>
-          <TouchableOpacity
-            style={styles.stageSelector}
-            onPress={() => setShowStagePicker(!showStagePicker)}
-          >
-            <Text style={styles.stageSelectorText}>
-              {stage?.length ? stage : "Select Stage"}
-            </Text>
-            <Text>{showStagePicker ? "▲" : "▼"}</Text>
-          </TouchableOpacity>
-
-          {showStagePicker && (
-            <View style={styles.stageDropdown}>
-              {QUOTATION_STAGES.map((item) => (
-                <TouchableOpacity
-                  key={item}
-                  style={[
-                    styles.stageOption,
-                    stage === item && styles.stageOptionActive,
-                  ]}
-                  onPress={() => {
-                    dispatch(setStage(item));
-                    setShowStagePicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.stageOptionText,
-                      stage === item &&
-                      styles.stageOptionTextActive,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           )}
         </View>
 
@@ -2178,37 +2131,5 @@ const styles = StyleSheet.create({
     color: "#444",
     marginBottom: 6,
   },
-  stageSelector: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    padding: 10,
-    borderRadius: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  stageSelectorText: {
-    color: "#111",
-  },
-  stageDropdown: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginTop: 5,
-    borderRadius: 8,
-  },
-
-  stageOption: {
-    padding: 10,
-  },
-
-  stageOptionText: {
-    color: "#333",
-  },
-  stageOptionActive: {
-    backgroundColor: '#F9FAFB',
-  },
-  stageOptionTextActive: {
-    fontWeight: '600',
-    color: '#111827',
-  },
+  
 });

@@ -1,59 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { RootState } from '@/store';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  FlatList,
-  Alert,
-  ScrollView,
-  Platform,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, Alert,
+  ScrollView, Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
-  Plus,
-  ChevronRight,
-  Percent,
-  IndianRupee,
-  FileText,
-  CreditCard,
-  Check,
-  X,
-  Search,
-  User,
-  Package,
-  Trash2,
-  ArrowLeft,
-  ShoppingBag,
-  Tag,
-  SlidersHorizontal,
+  Plus, ChevronRight, Percent, IndianRupee, FileText, CreditCard, Check, X, Search, User,
+  Package, Trash2, ArrowLeft, ShoppingBag, Tag, SlidersHorizontal,
 } from 'lucide-react-native';
 import { generateQuotationHTML } from '@/services/pdfService';
-import { setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications, setStage } from '@/store/slices/quotationBuilderSlice';
+import {
+  setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications,
+  loadAllTerms, loadAllPaymentTerms
+} from '@/store/slices/quotationBuilderSlice';
 import { updateQuotation } from '@/services/quotationService';
-import { getQuotations } from '@/store/slices/quotationsSlice';
+import { getQuotations, saveQuotation } from '@/store/slices/quotationsSlice';
 import { getRoman } from '@/utils/roman_number';
 import type { AppDispatch } from '@/store';
-import { QUOTATION_STAGES } from '@/constants/constant';
 import Avatar from '@/utils/avatar';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { generateFileName } from '@/utils/quotation';
+import { File, Paths } from 'expo-file-system';
+import { ActivityIndicator } from 'react-native';
 
 export default function CreateQuotationIndex() {
   const dispatch = useDispatch<AppDispatch>()
 
   const leads = useSelector((s: any) => (s && s.leads ? s.leads.leads || [] : []));
   const qb = useSelector((state: RootState) => state.quotationBuilder);
-  const [showStagePicker, setShowStagePicker] = useState(false);
   const token = useSelector((state: RootState) => state.auth.token);
   const user = useSelector((state: RootState) => state.auth.user);
 
   const selectedLead = qb.selectedLead || null;
   const selectedProducts = qb.selectedProducts || [];
   const reduxDiscount = qb.discount || { type: 'percentage', value: 0 };
-  const stage = qb.stage || '';
   const allTerms = qb.terms || [];
   const selectedTerms = qb.selectedTerms || [];
   const allSpecifications = qb.allSpecifications || []; // full list
@@ -70,11 +53,147 @@ export default function CreateQuotationIndex() {
   const [discountType, setDiscountType] = useState(reduxDiscount.type || 'percentage');
   const [discountValue, setDiscountValue] = useState(String(reduxDiscount.value || '0'));
   const [search, setSearch] = useState('');
+  const [savedQuotationId, setSavedQuotationId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [generateLoading, setGenerateLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const buildQuotationData = (
+    quotationId?: number
+  ) => ({
+    user,
+
+    quotationNumber:
+      quotationId ||
+      editingQuotationId ||
+      `QT-${Date.now()}`,
+
+    lead: selectedClient,
+
+    products: selectedProducts,
+
+    subtotal,
+
+    discount: {
+      type:
+        discountType === 'percentage'
+          ? 'percent'
+          : 'fixed',
+
+      value:
+        Number(discountValue) || 0,
+    },
+
+    discountAmount:
+      getDiscountAmount(),
+    totalAmount: total,
+    specifications:
+      selectedSpecifications,
+    terms: allTerms.filter(
+      (t: any) =>
+        selectedTerms
+          .map(Number)
+          .includes(Number(t.id))
+    ),
+
+    paymentTerms:
+      allPaymentTerms.filter(
+        (p: any) =>
+          selectedPaymentTerms
+            .map(Number)
+            .includes(Number(p.id))
+      ),
+
+    created_at:
+      new Date().toISOString(),
+  });
+
+  // Reusable Quotation payload
+  const buildQuotationPayload = () => ({
+    leadId: selectedLead,
+    products: selectedProducts.map((p) => ({
+      ...p,
+      productId: Number(p.productId),
+      unitPrice: Number(p.unitPrice),
+      quantity: Number(p.quantity),
+      length: p.length ? Number(p.length) : null,
+      width: p.width ? Number(p.width) : null,
+      totalPrice: Number(p.totalPrice),
+    })),
+    subtotal,
+    discount: {
+      type:
+        discountType === 'percentage'
+          ? 'percent'
+          : 'fixed',
+
+      value: Number(discountValue) || 0,
+    },
+    discountAmount: getDiscountAmount(),
+    totalAmount: total,
+    specifications: selectedSpecifications,
+    terms: selectedTerms,
+    paymentTerms: selectedPaymentTerms,
+    status: 'sent',
+  });
+
+  // universal save quotation
+  const saveOrUpdateQuotation = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload = buildQuotationPayload();
+
+      // UPDATE
+      if (
+        isEditMode ||
+        savedQuotationId
+      ) {
+
+        const quotationId =
+          savedQuotationId || Number(editingQuotationId);
+
+        if (!token) {
+          Alert.alert('Authentication required', 'Please sign in to update quotations.');
+          return;
+        }
+
+
+        await updateQuotation(
+          quotationId,
+          payload,
+          token
+        );
+
+        return quotationId;
+      }
+
+      // CREATE
+      const response = await dispatch(
+        saveQuotation(payload)
+      ).unwrap();
+
+      const quotationId =
+        response?.quotation?.id ||
+        response?.id;
+
+      setSavedQuotationId(quotationId);
+
+      return quotationId;
+    } catch (err) {
+      console.log('add edit err', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (isEditMode && !editingQuotationId) return;
 
     dispatch(loadAllSpecifications());
+    dispatch(loadAllTerms());
+    dispatch(loadAllPaymentTerms());
   }, [isEditMode, editingQuotationId]);
 
   useEffect(() => {
@@ -111,6 +230,12 @@ export default function CreateQuotationIndex() {
       console.warn('⚠️ Lead ID exists but not found in leads list', selectedLead);
     }
   }, [leads, selectedLead, isEditMode]);
+
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(resetForNewQuotation());
+    }, [])
+  );
 
   const selectedClient = leads.find((l: { id: any; }) => l.id === selectedLead);
 
@@ -173,15 +298,33 @@ export default function CreateQuotationIndex() {
   };
 
   const toggleTerm = (termId: any) => {
-    const exists = selectedTerms.includes(termId);
-    const updated = exists ? selectedTerms.filter((t: any) => t !== termId) : [...selectedTerms, termId];
-    dispatch({ type: 'quotationBuilder/setTerms', payload: updated });
+    const normalizedId = Number(termId);
+
+    const current = selectedTerms.map(Number);
+
+    const updated = current.includes(normalizedId)
+      ? current.filter((t) => t !== normalizedId)
+      : [...current, normalizedId];
+
+    dispatch({
+      type: 'quotationBuilder/setTerms',
+      payload: updated,
+    });
   };
 
   const togglePaymentTerm = (id: any) => {
-    const exists = selectedPaymentTerms.includes(id);
-    const updated = exists ? selectedPaymentTerms.filter((t: any) => t !== id) : [...selectedPaymentTerms, id];
-    dispatch({ type: 'quotationBuilder/setPaymentTerms', payload: updated });
+    const normalizedId = Number(id);
+
+    const current = selectedPaymentTerms.map(Number);
+
+    const updated = current.includes(normalizedId)
+      ? current.filter((t) => t !== normalizedId)
+      : [...current, normalizedId];
+
+    dispatch({
+      type: 'quotationBuilder/setPaymentTerms',
+      payload: updated,
+    });
   };
 
   const toggleSpecification = (id: string) => {
@@ -200,33 +343,40 @@ export default function CreateQuotationIndex() {
     Alert.alert('Success', 'Discount updated successfully');
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     if (!selectedClient || selectedProducts.length === 0) {
       Alert.alert('Incomplete', 'Please select a client and add items');
       return;
     }
 
-    const quotationData = {
-      user,
-      quotationNumber: isEditMode && editingQuotationId ? editingQuotationId : `QT-${Date.now()}`,
-      lead: selectedClient,
-      products: selectedProducts,
-      subtotal,
-      discount: {
-        type: (discountType === 'percentage' ? 'percent' : 'fixed') as 'percent' | 'fixed',
-        value: Number(discountValue) || 0,
-      },
-      discountAmount: getDiscountAmount(),
-      totalAmount: total,
-      specifications: selectedSpecifications,
-      terms: allTerms.filter((t: any) =>
-        selectedTerms.includes(t.id)
-      ),
-      paymentTerms: allPaymentTerms.filter((p: { id: any }) =>
-        selectedPaymentTerms.includes(p.id)
-      ),
-      created_at: new Date().toISOString(),
-    };
+    if (previewLoading) return;
+    setPreviewLoading(true);
+
+    let quotationId;
+    try {
+
+      quotationId =
+        await saveOrUpdateQuotation();
+
+      if (!quotationId) {
+        return;
+      }
+
+    } catch (error: any) {
+
+      Alert.alert(
+        'Error',
+        error.message ||
+        'Failed to save quotation'
+      );
+
+      return;
+    } finally {
+      setPreviewLoading(false);
+    }
+    const quotationData = buildQuotationData(
+      quotationId
+    );
 
     const html = generateQuotationHTML(quotationData, allSpecifications);
 
@@ -236,63 +386,175 @@ export default function CreateQuotationIndex() {
     });
   };
 
+  // Generate quotation
+  const handleGenerateQuotation =
+    async () => {
+
+      if (
+        !selectedClient ||
+        selectedProducts.length === 0
+      ) {
+        Alert.alert(
+          'Incomplete',
+          'Please select a client and add items'
+        );
+
+        return;
+      }
+
+      if (generateLoading) return;
+      setGenerateLoading(true);
+
+      try {
+
+        // Alert.alert(
+        //   'Generating PDF',
+        //   'Please wait...'
+        // );
+
+        // SAVE OR UPDATE FIRST
+        const quotationId = await saveOrUpdateQuotation();
+
+        if (!quotationId) {
+          return;
+        }
+
+        // BUILD DATA
+        const quotationData = buildQuotationData(quotationId);
+
+        // GENERATE HTML
+        const html = generateQuotationHTML(
+          quotationData,
+          allSpecifications
+        );
+
+        // GENERATE PDF
+        const { uri } = await Print.printToFileAsync({ html });
+
+        const fileName = generateFileName({
+          format: user?.pdf_file_name_format || 'Quotation_{date}',
+          companyName: user?.company_name || '',
+          clientName: selectedClient?.full_name || '',
+          companyType: user?.company_type || '',
+        });
+
+        const newFile = new File(Paths.document, fileName);
+
+        const buffer = await fetch(uri)
+          .then(res =>
+            res.arrayBuffer()
+          );
+
+        const data = new Uint8Array(buffer);
+
+        await newFile.create({
+          overwrite: true,
+        });
+
+        await newFile.write(data);
+
+        // SHARE / DOWNLOAD
+        if (await Sharing.isAvailableAsync()) {
+
+          await Sharing.shareAsync(newFile.uri,
+            {
+              mimeType:
+                'application/pdf',
+
+              dialogTitle:
+                'Download Quotation PDF',
+
+              UTI:
+                'com.adobe.pdf',
+            }
+          );
+        } else {
+
+          Alert.alert(
+            'Success',
+            'PDF generated successfully!'
+          );
+        }
+
+      } catch (error: any) {
+
+        console.error(
+          'Error generating PDF:',
+          error
+        );
+
+        Alert.alert(
+          'Error',
+          error.message ||
+          'Failed to generate PDF'
+        );
+      } finally {
+        setGenerateLoading(false);
+      }
+    };
+
   const handleSave = async () => {
     if (!selectedClient || selectedProducts.length === 0) {
       Alert.alert('Incomplete', 'Please select a client and add items');
       return;
     }
 
-    const currentEditMode = isEditMode;
-    const currentQuotationId = editingQuotationId;
-    const currentLead = selectedLead;
-    const currentProducts = [...selectedProducts];
-    const currentDiscountType = discountType;
-    const currentDiscountValue = discountValue;
+    if (saveLoading) return;
+    setSaveLoading(true);
+    // const currentEditMode = isEditMode;
+    // const currentQuotationId = editingQuotationId;
+    // const currentLead = selectedLead;
+    // const currentProducts = [...selectedProducts];
+    // const currentDiscountType = discountType;
+    // const currentDiscountValue = discountValue;
 
     try {
-      if (currentEditMode && currentQuotationId) {
-        const updateData = {
-          leadId: currentLead,
-          products: currentProducts,
-          subtotal,
-          discount: {
-            type: (currentDiscountType === 'percentage' ? 'percent' : 'fixed') as 'percent' | 'fixed',
-            value: Number(currentDiscountValue) || 0,
-          },
-          discountAmount: getDiscountAmount(),
-          stage,
-          totalAmount: total,
-          specifications: selectedSpecifications,
-          terms: selectedTerms,
-          paymentTerms: selectedPaymentTerms,
-        };
 
-        if (!token) {
-          Alert.alert('Authentication required', 'Please sign in to update quotations.');
-          return;
-        }
+      const quotationId = await saveOrUpdateQuotation();
 
-        const response = await updateQuotation(Number(currentQuotationId), updateData, token);
+      dispatch(
+        getQuotations({
+          page: 1,
+          loadMore: false,
+        }) as any
+      );
 
-        dispatch(getQuotations({ page: 1, loadMore: false }) as any);
-        dispatch(resetForNewQuotation());
+      // dispatch(resetForNewQuotation());
 
-        Alert.alert('Success', 'Quotation updated successfully!', [
+      Alert.alert(
+        'Success',
+        isEditMode || quotationId === savedQuotationId
+          ? 'Quotation updated successfully!'
+          : 'Quotation created successfully!',
+        [
           {
             text: 'OK',
             onPress: () => {
-              router.back();
-              router.back();
+              router.replace('/(tabs)/quotations');
+
+              setTimeout(() => {
+                dispatch(resetForNewQuotation());
+              }, 300);
             },
           },
-        ]);
-      } else {
-        router.push('/quotation/create/create-quotation-compact');
-      }
+        ]
+      );
+
     } catch (error: any) {
-      console.error('❌ Error saving quotation:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to save quotation';
+
+      console.error(
+        '❌ Error saving quotation:',
+        error
+      );
+
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to save quotation';
+
       Alert.alert('Error', errorMessage);
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -323,8 +585,22 @@ export default function CreateQuotationIndex() {
               style={styles.previewButton}
               onPress={handlePreview}
               activeOpacity={0.7}
+              disabled={previewLoading}
             >
-              <Text style={styles.previewButtonText}>Preview</Text>
+              <Text style={styles.previewButtonText}>
+                {
+                  previewLoading ? (
+                    <ActivityIndicator
+                      color="#475569"
+                      size="small"
+                    />
+                  ) : (
+                    <Text style={styles.previewButtonText}>
+                      Preview
+                    </Text>
+                  )
+                }
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -368,47 +644,7 @@ export default function CreateQuotationIndex() {
             <ChevronRight size={20} color="#94A3B8" />
           </TouchableOpacity>
 
-          {/* Stage Selector */}
-          <View style={styles.fieldWrapper}>
-            <Text style={styles.label}>Stage *</Text>
-            <TouchableOpacity
-              style={styles.stageSelector}
-              onPress={() => setShowStagePicker(!showStagePicker)}
-            >
-              <Text style={styles.stageSelectorText}>
-                {stage?.length ? stage : "Select Stage"}
-              </Text>
-              <Text>{showStagePicker ? "▲" : "▼"}</Text>
-            </TouchableOpacity>
 
-            {showStagePicker && (
-              <View style={styles.stageDropdown}>
-                {QUOTATION_STAGES.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={[
-                      styles.stageOption,
-                      stage === item && styles.stageOptionActive,
-                    ]}
-                    onPress={() => {
-                      dispatch(setStage(item));
-                      setShowStagePicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.stageOptionText,
-                        stage === item &&
-                        styles.stageOptionTextActive,
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
         </View>
 
         {/* Items Section */}
@@ -589,7 +825,7 @@ export default function CreateQuotationIndex() {
             {selectedPaymentTerms.length > 0 && (
               <View style={styles.termsPreview}>
                 {selectedPaymentTerms.slice(0, 2).map((id: any) => {
-                  const p = allPaymentTerms.find((x: { id: any; }) => x.id === id);
+                  const p = allPaymentTerms.find((x: { id: any; }) => Number(x.id) === Number(id));
                   return p ? (
                     <Text key={id} style={styles.termsPreviewText} numberOfLines={1}>
                       • {(p as any).description}
@@ -623,7 +859,7 @@ export default function CreateQuotationIndex() {
             {selectedTerms.length > 0 && (
               <View style={styles.termsPreview}>
                 {selectedTerms.slice(0, 2).map((id: any) => {
-                  const t = allTerms.find((x: { id: any; }) => x.id === id);
+                  const t = allTerms.find((x: { id: any; }) => Number(x.id) === Number(id));
                   return t ? (
                     <Text key={id} style={styles.termsPreviewText} numberOfLines={1}>
                       • {(t as any).text}
@@ -698,15 +934,56 @@ export default function CreateQuotationIndex() {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={handleSave}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.saveButtonText}>
-            {isEditMode ? 'Update Quotation' : 'Continue'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.btnContainer}>
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              saveLoading && styles.disabledButton
+            ]}
+            onPress={handleSave}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveButtonText}>
+              {
+                saveLoading ? (
+                  <ActivityIndicator
+                    color="#fff"
+                    size="small"
+                  />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    {isEditMode
+                      ? 'Update Quotation'
+                      : 'Add Quotation'}
+                  </Text>
+                )
+              }
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              generateLoading && styles.disabledButton
+            ]}
+            onPress={handleGenerateQuotation}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveButtonText}>
+              {
+                generateLoading ? (
+                  <ActivityIndicator
+                    color="#fff"
+                    size="small"
+                  />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    Generate Quotation
+                  </Text>
+                )
+              }
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Client Selection Modal */}
@@ -805,9 +1082,9 @@ export default function CreateQuotationIndex() {
               >
                 <View style={[
                   styles.checkbox,
-                  selectedTerms.includes(item.id) && styles.checkboxActive
+                  selectedTerms.map(String).includes(String(item.id)) && styles.checkboxActive
                 ]}>
-                  {selectedTerms.includes(item.id) && <Check size={16} color="#fff" />}
+                  {selectedTerms.map(String).includes(String(item.id)) && <Check size={16} color="#fff" />}
                 </View>
                 <Text style={styles.modalCheckItemText}>{item.text}</Text>
               </TouchableOpacity>
@@ -839,7 +1116,7 @@ export default function CreateQuotationIndex() {
 
           <FlatList
             data={allPaymentTerms}
-            keyExtractor={(p) => String(p.id)}
+            keyExtractor={(p) => Number(p.id)}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.modalCheckItem}
@@ -848,9 +1125,9 @@ export default function CreateQuotationIndex() {
               >
                 <View style={[
                   styles.checkbox,
-                  selectedPaymentTerms.includes(item.id) && styles.checkboxActive
+                  selectedPaymentTerms.map(Number).includes(Number(item.id)) && styles.checkboxActive
                 ]}>
-                  {selectedPaymentTerms.includes(item.id) && <Check size={16} color="#fff" />}
+                  {selectedPaymentTerms.map(Number).includes(Number(item.id)) && <Check size={16} color="#fff" />}
                 </View>
                 <Text style={styles.modalCheckItemText}>
                   {item.description} {item.value ? `- ${item.value}` : ''}
@@ -1419,6 +1696,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   saveButton: {
+    flex: 1,
     backgroundColor: '#3B82F6',
     borderRadius: 14,
     paddingVertical: 16,
@@ -1633,5 +1911,12 @@ const styles = StyleSheet.create({
   stageOptionTextActive: {
     fontWeight: '600',
     color: '#111827',
+  },
+  btnContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

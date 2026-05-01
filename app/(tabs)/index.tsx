@@ -12,6 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { editTask, ITask } from '@/store/slices/taskSlice';
+import TaskList from '@/components/TaskList';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 64) / 2;
@@ -33,8 +35,9 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { total_leads, total_products, total_categories, recent_leads, total_conversions } =
-    useSelector((state: RootState) => state.dashboard);
+  const { total_leads, total_products, total_categories, recent_leads, total_conversions,
+    recent_tasks, loading
+  } =  useSelector((state: RootState) => state.dashboard);
 
   // Notification permission
   const requestPermissions = async () => {
@@ -79,6 +82,30 @@ export default function HomeScreen() {
     { title: 'Add Contact', color: '#10B981', screen: '/(tabs)/leads', icon: UserPlus },
     { title: 'Add Specification', color: '#8B5CF6', screen: '/specifications', icon: ClipboardList },
   ];
+
+  // task toggle
+  const toggleComplete = (task: ITask) => {
+
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    try {
+      dispatch(editTask({
+        id: String(task.id),
+        data: {
+          contact_id: task.contact_id,
+          title: task.title,
+          status: newStatus,
+          due_date: task.due_date,
+          priority: task.priority,
+          notes: task.notes,
+        },
+      })).unwrap();
+
+      dispatch(fetchDashboardSummary());
+
+    } catch (error) {
+      console.log('Update failed', error);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -128,7 +155,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Recent Leads */}
-      <View style={styles.section}>
+      {/* <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Contacts</Text>
         <View style={styles.recentLeads}>
           {recent_leads.map((lead) => (
@@ -141,6 +168,16 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+      </View> */}
+
+      {/* Recent Tasks */}
+      <View style={[styles.section, { marginBottom: 15 }]}>
+        <TaskList
+          loading={loading as boolean}
+          tasks={recent_tasks}
+          toggleComplete={toggleComplete}
+          isDashboard={true}
+        />
       </View>
     </ScrollView>
   );
@@ -154,15 +191,15 @@ function getGreeting() {
   return 'Good evening!';
 }
 
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'new': return '#EFF6FF';
-    case 'contacted': return '#FFFBEB';
-    case 'qualified': return '#F0F9FF';
-    case 'converted': return '#ECFDF5';
-    default: return '#F1F5F9';
-  }
-}
+// function getStatusColor(status: string) {
+//   switch (status) {
+//     case 'new': return '#EFF6FF';
+//     case 'contacted': return '#FFFBEB';
+//     case 'qualified': return '#F0F9FF';
+//     case 'converted': return '#ECFDF5';
+//     default: return '#F1F5F9';
+//   }
+// }
 
 const styles = StyleSheet.create({
   container: {

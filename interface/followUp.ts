@@ -1,4 +1,4 @@
-export type IFollowUpType = 'Call' | 'Email' | 'Meeting' | 'Task';
+export type IFollowUpType = 'Call' | 'Email' | 'Meeting' ;
 export type IFollowUpStatus = 'pending' | 'done' | 'snoozed';
 
 export interface IFollowUpPayload {

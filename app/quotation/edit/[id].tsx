@@ -49,7 +49,6 @@ import {
   setPaymentTerms,
   // setCurrentStep 
 } from '@/store/slices/quotationBuilderSlice';
-import { WebView } from 'react-native-webview';
 import { generateFileName } from '@/utils/quotation';
 
 interface ISpecification {
@@ -89,16 +88,11 @@ export default function QuotationDetailsScreen() {
   const token = useSelector((state: RootState) => state.auth.token);
   const qb = useSelector((state: RootState) => state.quotationBuilder);
   const allSpecifications = qb.allSpecifications || [];
-  const allTerms = useSelector((state: RootState) => state.quotationBuilder.terms);
   const allPaymentTerms = useSelector((state: RootState) => state.quotationBuilder.paymentTerms);
 
   const dispatch = useDispatch();
   const [quotation, setQuotation] = useState<QuotationDetails | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewHTML, setPreviewHTML] = useState<string | null>(null);
-
 
   useEffect(() => {
     loadQuotationDetails();

@@ -100,7 +100,7 @@ export default function AddItemScreen() {
     setUnitPrice(Number(editItem.unitPrice));
     setQuantity(Number(editItem.quantity));
     setLengthVal(String(editItem.length ?? "1"));
-    setWidthVal(String(editItem.width ?? "1")) ;
+    setWidthVal(String(editItem.width ?? "1"));
     setUnit(editItem.unit);
 
     setShowSuggestions(false);
@@ -730,14 +730,23 @@ export default function AddItemScreen() {
           animationType="fade"
           onRequestClose={() => setShowAddCategoryModal(false)}
         >
-          <TouchableWithoutFeedback onPress={() => setShowAddCategoryModal(false)}>
-            <View style={styles.modalOverlay} />
+          <TouchableWithoutFeedback
+            onPress={() => setShowAddCategoryModal(false)}
+          >
+            <View style={styles.categoryModalOverlay} />
           </TouchableWithoutFeedback>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add Category</Text>
-                <TouchableOpacity onPress={() => setShowAddCategoryModal(false)}>
+
+          <View style={styles.categoryModalContainer}>
+            <View style={styles.categoryModalContent}>
+
+              <View style={styles.categoryModalHeader}>
+                <Text style={styles.categoryModalTitle}>
+                  Add Category
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowAddCategoryModal(false)}
+                >
                   <X size={22} color="#64748B" />
                 </TouchableOpacity>
               </View>
@@ -747,26 +756,42 @@ export default function AddItemScreen() {
                 placeholderTextColor="#94A3B8"
                 value={newCategoryName}
                 onChangeText={setNewCategoryName}
-                style={styles.modalInput}
+                style={styles.categoryModalInput}
                 autoFocus
               />
 
-              <View style={styles.modalActions}>
+              <View style={styles.categoryModalActions}>
+
                 <TouchableOpacity
                   onPress={() => setShowAddCategoryModal(false)}
-                  style={[styles.modalBtn, styles.cancelBtn]}
+                  style={[
+                    styles.categoryModalBtn,
+                    styles.categoryCancelBtn,
+                  ]}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={styles.categoryCancelText}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                  onPress={() => handleCreateCategoryInline(newCategoryName)}
-                  style={[styles.modalBtn, styles.createBtn]}
+                  onPress={() =>
+                    handleCreateCategoryInline(newCategoryName)
+                  }
+                  style={[
+                    styles.categoryModalBtn,
+                    styles.categoryCreateBtn,
+                  ]}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.createText}>Create</Text>
+                  <Text style={styles.categoryCreateText}>
+                    Create
+                  </Text>
                 </TouchableOpacity>
+
               </View>
+
             </View>
           </View>
         </Modal>
@@ -1560,6 +1585,95 @@ const styles = StyleSheet.create({
   },
   createText: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  categoryModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15,23,42,0.45)',
+  },
+
+  categoryModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+
+  categoryModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+
+    elevation: 12,
+  },
+
+  categoryModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+
+  categoryModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  categoryModalInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#111827',
+  },
+
+  categoryModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 22,
+  },
+
+  categoryModalBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+
+  categoryCancelBtn: {
+    backgroundColor: '#F1F5F9',
+  },
+
+  categoryCreateBtn: {
+    backgroundColor: '#3B82F6',
+  },
+
+  categoryCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
+  categoryCreateText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },

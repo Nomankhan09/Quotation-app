@@ -29,6 +29,7 @@ import ContactFormModal from '@/components/ContactFormModal';
 import { loadStatuses } from '@/store/slices/contactStatusSlice';
 import { timeAgo } from '@/utils/date_format';
 import StatusPickerModal from '@/components/StatusPickerModal';
+import * as Notifications from 'expo-notifications';
 
 export default function LeadsScreen() {
   const dispatch = useDispatch<any>();
@@ -48,7 +49,7 @@ export default function LeadsScreen() {
 
   const handlePress = (contact: any) => {
     router.push({
-      pathname: '/ContactDetailScreen',
+      pathname: '/lead/contact-details',
       params: { contact: JSON.stringify(contact) },
     });
   };
@@ -203,6 +204,18 @@ export default function LeadsScreen() {
       </TouchableOpacity>
     );
   };
+  const requestPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Permission not granted!');
+    }
+    const settings = await Notifications.getPermissionsAsync();
+    // console.log(settings);
+  };
+
+  useEffect(() => {
+    requestPermissions();
+  }, []);
 
   return (
     <View style={styles.container}>

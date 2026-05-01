@@ -18,22 +18,22 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { addFollowUp, editFollowUp, loadFollowUpsByLead } from '@/store/slices/followUpSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
-import { ILead } from '@/interface/leads';
 import { openTimePicker } from '@/utils/time_picker';
 import { formatDate, getDaysAgo, parseDate } from '@/utils/date_format';
 import { scheduleFollowUpNotification } from '@/utils/notifications/notifications';
 import * as Notifications from 'expo-notifications';
+import { Lead } from '@/store/slices/leadsSlice';
 
 // ─── Type meta ───────────────────────────────────────────────────────────────
 const TYPE_META: Record<IFollowUpType, { icon: string; color: string; bg: string }> = {
     Call: { icon: 'call', color: '#ef4444', bg: '#fee2e2' },
     Email: { icon: 'mail', color: '#8b5cf6', bg: '#ede9fe' },
     Meeting: { icon: 'people', color: '#f59e0b', bg: '#fef3c7' },
-    Task: { icon: 'checkbox-outline', color: '#6b7280', bg: '#f3f4f6' },
+    // Task: { icon: 'checkbox-outline', color: '#6b7280', bg: '#f3f4f6' },
 };
 
 
-const TYPES: IFollowUpType[] = ['Call', 'Email', 'Meeting', 'Task'];
+const TYPES: IFollowUpType[] = ['Call', 'Email', 'Meeting'];
 
 const isOverdue = (date: Date, status: IFollowUpStatus): boolean =>
     status === 'pending' && date < new Date();
@@ -50,7 +50,7 @@ const SNOOZE_OPTIONS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const LeadFollowUps = (lead: { lead: ILead }) => {
+const LeadFollowUps = (lead: { lead: Lead }) => {
     const [showSchedule, setShowSchedule] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [snoozeTarget, setSnoozeTarget] = useState<string | null>(null);
@@ -95,7 +95,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
             is24Hour: false,
             onChange: (event, selectedDate) => {
                 if (event.type === 'dismissed') return;
-                if (selectedDate) openTimePicker(selectedDate, setValue);
+                if (selectedDate) openTimePicker(selectedDate, setValue, 'date');
             },
         });
     };
@@ -163,7 +163,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
             id,
             data: {
                 ...item,
-                contact_id: lead.lead.id,
+                contact_id: Number(lead.lead.id),
                 status: 'done',
             }
         }));
@@ -177,7 +177,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
             id,
             data: {
                 ...item,
-                contact_id: lead.lead.id,
+                contact_id: Number(lead.lead.id),
                 status: 'pending',
             }
         }));
@@ -209,7 +209,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
             id,
             data: {
                 ...item,
-                contact_id: lead.lead.id,
+                contact_id: Number(lead.lead.id),
                 date: formattedDate,
                 status: 'snoozed',
                 notification_id: notificationId,
@@ -331,7 +331,7 @@ const LeadFollowUps = (lead: { lead: ILead }) => {
 
     // ─── Render ────────────────────────────────────────────────────────────────
     useEffect(() => {
-        dispatch(loadFollowUpsByLead(lead.lead.id));
+        dispatch(loadFollowUpsByLead(Number(lead.lead.id)));
     }, []);
 
     useEffect(() => {

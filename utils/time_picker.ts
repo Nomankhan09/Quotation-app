@@ -1,6 +1,6 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
-export const openTimePicker = (date: Date, setValue: any) => {
+export const openTimePicker = (date: Date, setValue: any, input_field: string) => {
     DateTimePickerAndroid.open({
         value: date,
         mode: 'time',
@@ -22,7 +22,7 @@ export const openTimePicker = (date: Date, setValue: any) => {
                     `${finalDate.getFullYear()} ` +
                     `${String(h).padStart(2, '0')}:` +
                     `${String(minutes).padStart(2, '0')} ${ampm}`;
-                setValue('date', formatted);
+                setValue(input_field, formatted);
             }
         },
     });

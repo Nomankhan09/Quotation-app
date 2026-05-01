@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { setTerms, addCustomTerm, loadAllTerms, deleteOneTerm, setCurrentStep } from '@/store/slices/quotationBuilderSlice';
 // import { ArrowLeft, FileText, Plus, X, Check, Trash2 } from 'lucide-react-native';
 import { handleBackPress } from '@/utils/navigation';
+import { ArrowLeft, Check, FileText, Plus, Trash2, X } from 'lucide-react-native';
 
 export default function TermsScreen() {
   const { terms, selectedTerms, termsInitialized, loading } = useSelector((state: RootState) => state.quotationBuilder);

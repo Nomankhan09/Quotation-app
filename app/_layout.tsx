@@ -80,9 +80,9 @@ export default function RootLayout() {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Default',
         importance: Notifications.AndroidImportance.MAX,
-        sound: 'default',
+        // sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
-        lightColor:"#f3e5e57c",
+        lightColor: "#f3e5e57c",
       });
     };
 

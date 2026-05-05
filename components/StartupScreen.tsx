@@ -8,6 +8,7 @@ import { loadAllProducts } from '@/store/slices/productsSlice';
 import { loadAllCategories } from '@/store/slices/categoriesSlice';
 import { loadAllSpecifications } from '@/store/slices/specificationsSlice';
 import { clearTermsAndPaymentTerms, loadAllPaymentTerms, loadAllTerms } from '@/store/slices/quotationBuilderSlice';
+import { loadDealStage } from '@/store/slices/dealSlice';
 
 interface StartupScreenProps {
   onComplete: () => void;
@@ -32,7 +33,8 @@ export default function StartupScreen({ onComplete }: StartupScreenProps) {
           dispatch(loadAllLeads()).unwrap(),
           dispatch(loadAllProducts()).unwrap(),
           dispatch(loadAllCategories()).unwrap(),
-          dispatch(loadAllSpecifications()).unwrap()
+          dispatch(loadAllSpecifications()).unwrap(),
+          dispatch(loadDealStage()).unwrap()
         ]);
 
         // Add a small delay to ensure smooth transition

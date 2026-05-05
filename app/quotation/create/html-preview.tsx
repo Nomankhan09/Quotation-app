@@ -41,62 +41,7 @@ export default function HtmlPreview() {
     );
   }
 
-  // Enhanced HTML with responsive viewport and zoom controls
-  // html-preview.tsx ke andar enhancedHtml ko aise update karein:
-
-  const enhancedHtml = `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-      <style>
-        * {
-          box-sizing: border-box; /* Padding se width na badhe */
-          -webkit-text-size-adjust: 100%;
-        }
-        body {
-        zoom : 0.5;
-          margin: 0;
-          padding: 10px; /* Thoda padding side mein */
-          font-family: -apple-system, sans-serif;
-          background: #ffffff;
-          width: 100vw; /* Viewport width fix */
-          overflow-x: hidden; /* Horizontal scroll rokne ke liye */
-        }
-        /* Tables ko responsive banane ke liye */
-        table {
-          width: 100% !important;
-          border-collapse: collapse;
-          table-layout: auto; /* Fixed ki jagah auto use karein taaki content adjust ho sake */
-        }
-        img {
-          max-width: 100% !important;
-          height: auto !important;
-        }
-          @page {
-            size: A4;
-            margin: 10mm;
-          }
-        
-          html, body {
-            width: 100%;
-            height: 100%;
-          }
-      </style>
-    </head>
-    <body
-          style="
-            width: 100%;
-            height: 100%;
-            padding: 20px;
-            box-sizing: border-box;"
-    >
-      ${html}
-    </body>
-  </html>
-`;
-  // Two separate HTML generators
-
+    
   const getPreviewHtml = () => `
   <!DOCTYPE html>
   <html>

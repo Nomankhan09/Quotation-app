@@ -24,6 +24,7 @@ interface DashboardState {
   total_products: number;
   total_categories: number;
   total_conversions: number;
+  total_deals: number;
   recent_leads: any[];
   loading: boolean;
   recent_tasks: any[];
@@ -34,6 +35,7 @@ const initialState: DashboardState = {
   total_products: 0,
   total_categories: 0,
   total_conversions: 0,
+  total_deals: 0,
   recent_leads: [],
   loading: false,
   recent_tasks: [],
@@ -56,6 +58,7 @@ const dashboardSlice = createSlice({
         state.total_conversions = action.payload.total_conversions;
         state.recent_leads = action.payload.recent_leads || [];
         state.recent_tasks = action.payload.recent_tasks || [];
+        state.total_deals = action.payload.total_deals;
       })
       .addCase(fetchDashboardSummary.rejected, (state) => {
         state.loading = false;

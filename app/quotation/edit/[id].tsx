@@ -93,6 +93,7 @@ export default function QuotationDetailsScreen() {
   const dispatch = useDispatch();
   const [quotation, setQuotation] = useState<QuotationDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   useEffect(() => {
     loadQuotationDetails();
@@ -123,30 +124,33 @@ export default function QuotationDetailsScreen() {
       return;
     }
 
-    const quotationData = {
-      user,
-      quotationNumber: quotation.quotationNumber,
-      lead,
-      products: quotation.products,
-      subtotal: quotation.subtotal,
-      discount: quotation.discount,
-      specifications: quotation.specifications || [],
-      discountAmount: quotation.discountAmount,
-      totalAmount: quotation.totalAmount,
-      terms: quotation.terms || [],
-      paymentTerms: quotation.paymentTerms || [],
-      created_at: quotation.created_at,
-    };
+    setIsPreviewLoading(true);
+    setTimeout(() => {
+      const quotationData = {
+        user,
+        quotationNumber: quotation.quotationNumber,
+        lead,
+        products: quotation.products,
+        subtotal: quotation.subtotal,
+        discount: quotation.discount,
+        specifications: quotation.specifications || [],
+        discountAmount: quotation.discountAmount,
+        totalAmount: quotation.totalAmount,
+        terms: quotation.terms || [],
+        paymentTerms: quotation.paymentTerms || [],
+        created_at: quotation.created_at,
+      };
 
-    const html = generateQuotationHTML(quotationData, allSpecifications);
+      const html = generateQuotationHTML(quotationData, allSpecifications);
 
-    router.push({
-      pathname: '/quotation/create/html-preview',
-      params: { html, leadName: lead.full_name },
-    });
+      router.push({
+        pathname: '/quotation/create/html-preview',
+        params: { html, leadName: lead.full_name },
+      });
+
+      setIsPreviewLoading(false);
+    }, 0);
   };
-
-
 
   const handleEdit = () => {
     if (!quotation) return;
@@ -414,9 +418,13 @@ export default function QuotationDetailsScreen() {
         <TouchableOpacity
           style={styles.previewButton}
           onPress={handlePreview}
+          disabled={isPreviewLoading}
           activeOpacity={0.7}
         >
-          <Text style={styles.previewButtonText}>Preview</Text>
+          {isPreviewLoading ?
+            <ActivityIndicator size="small" color="#3B82F6" />
+            : <Text style={styles.previewButtonText}>Preview</Text>
+          }
         </TouchableOpacity>
       </View>
 

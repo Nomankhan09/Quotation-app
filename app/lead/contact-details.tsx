@@ -8,7 +8,7 @@ import {
   StatusBar,
   Linking,
   ActivityIndicator,
-  TextInput,
+  FlatList,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,23 +18,26 @@ import { StageBadge } from '@/utils/stageBadge';
 import ContactFormModal from '@/components/ContactFormModal';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { ICallLog } from '@/interface/callLogs';
 import LeadFollowUps from './LeadFollowUps';
 import { editLead } from '@/store/slices/leadsSlice';
 import StatusPickerModal from '@/components/StatusPickerModal';
 import LeadNotes from './LeadNotes';
 import LeadActivity from './LeadActivity';
 import LeadTasks from './LeadTask';
-import { Lead } from '@/store/slices/leadsSlice';
 import { AppState } from 'react-native';
-import { Modal } from 'react-native';
-import { Controller, useForm } from 'react-hook-form';
+import CallLogModal from '@/components/CallLogModal';
+import { addCallLog, loadCallLogs } from '@/store/slices/callLogSlice';
+import { useRouter } from 'expo-router';
 
 type TabKey = 'Overview' | 'Follow-ups' | 'Notes' | 'Activity' | 'Tasks';
 const TABS: TabKey[] = ['Overview', 'Follow-ups', 'Notes', 'Activity', 'Tasks'];
-type CallLogForm = {
+export type CallLogForm = {
   type: 'INCOMING' | 'OUTGOING' | 'MISSED';
-  duration: string;
+  durationObj: {
+    hours: string;
+    minutes: string;
+    seconds: string;
+  };
 };
 
 // const SCORE_BREAKDOWN = [
@@ -46,38 +49,33 @@ type CallLogForm = {
 
 const ContactDetailScreen = () => {
   const navigation = useNavigation();
+  const router = useRouter();
   const route = useRoute();
   const callInitiatedRef = useRef(false);
   const dispatch = useDispatch<any>();
   const [activeTab, setActiveTab] = React.useState<TabKey>('Overview');
   const [showEditModal, setShowEditModal] = React.useState(false);
-  const [showTaskSheet, setShowTaskSheet] = React.useState(false);
   const [showStatusModal, setShowStatusModal] = React.useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
-  const [callLogs, setCallLogs] = React.useState<ICallLog[]>([]);
-  const [isCallLogLoading, setIsCallLogLoading] = React.useState(false);
   const [showCallLogSheet, setShowCallLogSheet] = React.useState<boolean>(false);
   const [callFilter, setCallFilter] = React.useState<'ALL' | 'INCOMING' | 'OUTGOING' | 'MISSED'>('ALL');
   const { statuses } = useSelector(
     (state: RootState) => state.contactStatus
   );
+  const { logs: callLogs, loading: isCallLogLoading } = useSelector(
+    (state: RootState) => state.callLogs
+  );
   const appState = useRef(AppState.currentState);
 
-  // for adding call log
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors }
-  } = useForm<CallLogForm>({
-    defaultValues: {
-      type: 'OUTGOING',
-      duration: '',
+  // default value for call log
+  const defaultValues: CallLogForm = {
+    type: "OUTGOING",
+    durationObj: {
+      hours: "",
+      minutes: "",
+      seconds: "",
     },
-  });
-  const selectedType = watch('type');
+  }
 
   const contact = useSelector((state: RootState) => {
     const contactParam = JSON.parse((route.params as any)?.contact);
@@ -115,14 +113,31 @@ const ContactDetailScreen = () => {
   };
 
   const formatDate = (timestamp: string) => {
-    const d = new Date(parseInt(timestamp));
+    const d = new Date(timestamp); // ✅ correct
+
+    if (isNaN(d.getTime())) return "Invalid date";
+
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    if (isToday)
-      return `Today, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    if (isToday) {
+      return `Today, ${d.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    }
+
     return (
-      d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
-      ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      d.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }) +
+      ", " +
+      d.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
     );
   };
 
@@ -173,29 +188,13 @@ const ContactDetailScreen = () => {
   //   }
   // };
 
-  // const fetchCallHistory = async () => {
-  //   setIsCallLogLoading(true);
-  //   try {
-  //     if (!contact.phone) return;
 
-  //     // check permission and ask for it
-  //     const hasPermission = await requestCallLogPermission();
 
-  //     if (!hasPermission) {
-  //       console.log('Call log permission denied');
-  //       return;
-  //     }
-
-  //     const logs = await CallLogs.load(100, { phoneNumbers: contact?.phone });
-  //     setCallLogs(logs as ICallLog[]);
-  //   } catch (e) {
-  //     console.error(e);
-  //   } finally {
-  //     setIsCallLogLoading(false);
-  //   }
-  // };
-
-  // useEffect(() => { fetchCallHistory(); }, [contact.phone]);
+  useEffect(() => {
+    if (contact?.id) {
+      dispatch(loadCallLogs({ lead_id: Number(contact.id) }));
+    }
+  }, [contact?.id]);
 
   const filteredLogs =
     callFilter === 'ALL' ? callLogs : callLogs.filter(l => l.type === callFilter);
@@ -205,8 +204,18 @@ const ContactDetailScreen = () => {
   );
   const formatTotalDuration = (sec: number) => {
     if (sec < 60) return `${sec}s`;
-    if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-    return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+
+    if (sec < 3600) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m}m ${s}s`; // ✅ FIXED
+    }
+
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+
+    return `${h}h ${m}m ${s}s`;
   };
 
   // google meet
@@ -223,33 +232,52 @@ const ContactDetailScreen = () => {
   };
 
   // call log thing
-  // useEffect(() => {
-  //   const sub = AppState.addEventListener('change', nextState => {
-  //     if (
-  //       appState.current.match(/inactive|background/) &&
-  //       nextState === 'active' &&
-  //       callInitiatedRef.current
-  //     ) {
-  //       setShowCallLogSheet(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextState === 'active' &&
+        callInitiatedRef.current
+      ) {
+        setShowCallLogSheet(true);
 
-  //       // reset flag
-  //       callInitiatedRef.current = false;
-  //     }
+        // reset flag
+        callInitiatedRef.current = false;
+      }
 
-  //     appState.current = nextState;
-  //   });
+      appState.current = nextState;
+    });
 
-  //   return () => sub.remove();
-  // }, []);
+    return () => sub.remove();
+  }, []);
 
   const handleSaveCallLog = (data: CallLogForm) => {
-    console.log('data', data);
-    // dispatch(addCallLog({
-    //   contact_id: contact.id,
-    //   type: callType,
-    //   duration: Number(duration),
-    //   timestamp: Date.now().toString(),
-    // }));
+    let totalSeconds = 0;
+
+    if (data.type !== "MISSED") {
+      const h = parseInt(data.durationObj?.hours || '0', 10);
+      const m = parseInt(data.durationObj?.minutes || '0', 10);
+      const s = parseInt(data.durationObj?.seconds || '0', 10);
+
+      totalSeconds = h * 3600 + m * 60 + s;
+
+      if (totalSeconds === 0) {
+        return; // or show error
+      }
+    }
+
+    // time 
+    const now = new Date();
+    const formatted = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    dispatch(addCallLog({
+      duration: totalSeconds,
+      type: data.type,
+      lead_id: Number(contact.id),
+      timestamp: formatted,
+    })).then(() => {
+      dispatch(loadCallLogs({ lead_id: Number(contact.id) }))
+    });
 
     setShowCallLogSheet(false);
   };
@@ -281,6 +309,20 @@ const ContactDetailScreen = () => {
       label: 'Meet', icon: 'calendar', bg: '#EDE7F6', text: '#5E35B1',
       onPress: openGoogleMeet
     },
+    {
+      label: 'Deal',
+      icon: 'pricetag-outline',
+      bg: '#FDECEA',
+      text: '#E53935',
+      onPress: () => {
+        router.push({
+          pathname: '/deal/create-deal',
+          params: {
+            lead: JSON.stringify(contact)
+          }
+        })
+      }
+    }
   ];
 
   // ─── Lead Score ─────────────────────────────────────────────────────────────
@@ -319,141 +361,133 @@ const ContactDetailScreen = () => {
 
   // ─── Tab Content ─────────────────────────────────────────────────────────────
 
-  const renderOverview = () => (
-    <>
-      {/* Lead Score + Next Action */}
-      {/* <View style={styles.scoreCard}>
-        <View style={styles.scoreLeft}>
-          <Text style={styles.scoreCardLabel}>Lead score</Text>
-          <View style={styles.ringWrap}>
-            <Svg
-              width={72}
-              height={72}
-              viewBox="0 0 72 72"
-              style={{ position: 'absolute' } as any}
-            >
-              <Circle cx={36} cy={36} r={28} fill="none" stroke="#e5e7eb" strokeWidth={5} />
-              <Circle
-                cx={36} cy={36} r={28} fill="none"
-                stroke="#22c55e" strokeWidth={5}
-                strokeDasharray={`${progress} ${circumference}`}
-                strokeDashoffset={circumference / 4}
-                strokeLinecap="round"
-              />
-            </Svg>
-            <Text style={styles.ringScore}>{leadScore}</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: '#fee2e2' }]}>
-            <Text style={[styles.badgeText, { color: '#ef4444' }]}>Hot</Text>
-          </View>
-        </View>
+  const renderOverview = () => {
+    return (
+      <FlatList<any>
+        data={[]} // container list
+        renderItem={() => null} // ✅ required for TS
+        keyExtractor={(_, index) => index.toString()}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
 
-        <View style={styles.scoreDivider} />
+        ListHeaderComponent={
+          <>
+            {/* Contact Info */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Contact Info</Text>
 
-        <View style={styles.scoreRight}>
-          <Text style={styles.scoreCardLabel}>Next action</Text>
-          <Text style={styles.nextActionDate}>{nextActionDate}</Text>
-          <Text style={styles.nextActionLabel}>{nextAction}</Text>
-        </View>
-      </View> */}
-
-      {/* Score Breakdown */}
-      {/* <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Score Breakdown</Text>
-        {SCORE_BREAKDOWN.map(item => (
-          <ScoreBar key={item.label} {...item} />
-        ))}
-      </View> */}
-
-      {/* Contact Info */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Contact Info</Text>
-        {[
-          ['Email', contact.email],
-          ['Phone', '+91 ' + contact.phone],
-          ['Location', contact?.location],
-          ['Source', contact.source],
-        ].map(([label, value], i, arr) => (
-          <View key={i} style={[styles.infoRow, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
-            <Text style={styles.infoLabel}>{label}</Text>
-            <Text style={[styles.infoValue, label === 'Email' && { color: '#3b82f6' }]}>{value}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Additional notes */}
-      {contact.notes &&
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Additional Notes</Text>
-          <Text>{contact.notes}</Text>
-        </View>
-      }
-
-      {/* Call History (inline) */}
-      <View style={styles.card}>
-        <View style={styles.callHistoryHeader}>
-          <Text style={styles.sectionTitle}>Call History</Text>
-          {!isCallLogLoading && callLogs.length > 0 && (
-            <View style={[styles.badge, { backgroundColor: '#dbeafe' }]}>
-              <Text style={[styles.badgeText, { color: '#3b82f6' }]}>
-                {callLogs.length} calls · {formatTotalDuration(totalDuration)}
-              </Text>
+              {contact ? (
+                [
+                  ['Email', contact.email],
+                  ['Phone', '+91 ' + contact.phone],
+                  ['Location', contact?.location],
+                  ['Source', contact.source],
+                ].map(([label, value], i, arr) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.infoRow,
+                      i === arr.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <Text style={styles.infoLabel}>{label}</Text>
+                    <Text style={styles.infoValue}>{value || '-'}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyText}>No contact found</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
 
-        {/* Filter pills */}
-        <View style={styles.filterRow}>
-          <CallFilterPill label="All" type="ALL" count={callLogs.length} color="#6366f1" />
-          <CallFilterPill label="Incoming" type="INCOMING" count={callLogs.filter(l => l.type === 'INCOMING').length} color="#22c55e" />
-          <CallFilterPill label="Outgoing" type="OUTGOING" count={callLogs.filter(l => l.type === 'OUTGOING').length} color="#3b82f6" />
-          <CallFilterPill label="Missed" type="MISSED" count={callLogs.filter(l => l.type === 'MISSED').length} color="#ef4444" />
-        </View>
+            {/* Notes */}
+            {contact?.notes && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Additional Notes</Text>
+                <Text>{contact.notes}</Text>
+              </View>
+            )}
 
-        {isCallLogLoading ? (
-          <ActivityIndicator size="small" color="#6366f1" style={{ marginVertical: 20 }} />
-        ) : filteredLogs.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="call-outline" size={36} color="#ddd" />
-            <Text style={styles.emptyText}>No calls found</Text>
-          </View>
-        ) : (
-          filteredLogs.map((item, index) => {
-            const s = getCallStyle(item.type);
-            return (
-              <View key={index} style={[styles.logRow, index === 0 && { borderTopWidth: 0 }]}>
-                <View style={[styles.logIconWrap, { backgroundColor: s.bg }]}>
-                  <Ionicons name={s.icon as any} size={15} color={s.color} />
-                  {s.secondaryIcon && (
-                    <Ionicons
-                      name={s.secondaryIcon as any}
-                      size={10} color={s.color}
-                      style={{ position: 'absolute', bottom: -2, right: -2 }}
-                    />
-                  )}
-                </View>
-                <View style={styles.logMeta}>
-                  <Text style={[styles.logType, { color: s.color }]}>{item.type}</Text>
-                  <Text style={styles.logDate}>{formatDate(item.timestamp)}</Text>
-                </View>
-                <View style={styles.logRight}>
-                  <Text style={styles.logDur}>{formatDuration(item.duration?.toString())}</Text>
-                  {parseInt(item.duration?.toString() || '0') > 0 && (
-                    <View style={styles.durBar}>
-                      <View style={[styles.durFill, {
-                        width: `${Math.min((parseInt(item.duration?.toString() || '0') / 300) * 100, 100)}%` as any,
-                        backgroundColor: s.color,
-                      }]} />
+            {/* Call History */}
+            <View style={styles.card}>
+              {/* Header */}
+              <View style={styles.callHistoryHeader}>
+                <Text style={styles.sectionTitle}>Call History</Text>
+
+
+                {/* Mandually add call log */}
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => { setShowCallLogSheet(true) }}>
+                    <Ionicons name="add" size={18} color="#6366f1" />
+                  </TouchableOpacity>
+                  {!isCallLogLoading && callLogs.length > 0 && (
+                    <View style={[styles.badge, { backgroundColor: '#dbeafe' }]}>
+                      <Text style={[styles.badgeText, { color: '#3b82f6' }]}>
+                        {callLogs.length} calls · {formatTotalDuration(totalDuration)}
+                      </Text>
                     </View>
                   )}
                 </View>
               </View>
-            );
-          })
-        )}
-      </View>
-    </>
-  );
+
+              {/* Filters */}
+              <View style={styles.filterRow}>
+                <CallFilterPill label="All" type="ALL" count={callLogs.length} color="#6366f1" />
+                <CallFilterPill label="Incoming" type="INCOMING" count={callLogs.filter(l => l.type === 'INCOMING').length} color="#22c55e" />
+                <CallFilterPill label="Outgoing" type="OUTGOING" count={callLogs.filter(l => l.type === 'OUTGOING').length} color="#3b82f6" />
+                <CallFilterPill label="Missed" type="MISSED" count={callLogs.filter(l => l.type === 'MISSED').length} color="#ef4444" />
+              </View>
+
+              {/* 🔥 LOADER */}
+              {isCallLogLoading ? (
+                <ActivityIndicator size="small" color="#6366f1" style={{ marginVertical: 20 }} />
+              ) : filteredLogs.length === 0 ? (
+                // 🔥 EMPTY STATE
+                <View style={styles.emptyWrap}>
+                  <Ionicons name="call-outline" size={36} color="#ddd" />
+                  <Text style={styles.emptyText}>No calls found</Text>
+                </View>
+              ) : (
+                // 🔥 LIST
+                <FlatList
+                  data={filteredLogs}
+                  keyExtractor={(item) => item.id.toString()}
+                  scrollEnabled={false}
+                  renderItem={({ item, index }) => {
+                    const s = getCallStyle(item.type);
+
+                    return (
+                      <View style={[styles.logRow, index === 0 && { borderTopWidth: 0 }]}>
+                        <View style={[styles.logIconWrap, { backgroundColor: s.bg }]}>
+                          <Ionicons name={s.icon as any} size={15} color={s.color} />
+                        </View>
+
+                        <View style={styles.logMeta}>
+                          <Text style={[styles.logType, { color: s.color }]}>
+                            {item.type}
+                          </Text>
+                          <Text style={styles.logDate}>
+                            {formatDate(item.created_at)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.logRight}>
+                          <Text style={styles.logDur}>
+                            {formatDuration(item.duration?.toString())}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }}
+                />
+              )}
+            </View>
+          </>
+        }
+      />
+    );
+  };
 
   const renderEmptyTab = (label: string) => (
     <View style={styles.emptyTab}>
@@ -526,10 +560,28 @@ const ContactDetailScreen = () => {
       {/* Action buttons */}
       <View style={styles.actionRow}>
         {actions.map((item, i) => (
-          <TouchableOpacity key={i} onPress={item.onPress} style={styles.actionBtn} activeOpacity={0.75}>
-            <Ionicons name={item.icon as any} size={16} color={item.text} style={{ marginRight: 5 }} />
-            <Text style={[styles.actionText, { color: item.text }]}>{item.label}</Text>
-          </TouchableOpacity>
+          <View key={i} style={{ flex: 1, alignItems: 'center' }}>
+
+            <TouchableOpacity
+              onPress={item.onPress}
+              activeOpacity={0.75}
+              style={[
+                styles.actionBtn,
+                { backgroundColor: item.bg }
+              ]}
+            >
+              <Ionicons
+                name={item.icon as any}
+                size={20}
+                color={item.text}
+              />
+            </TouchableOpacity>
+
+            <Text style={[styles.actionText, { color: item.text }]}>
+              {item.label}
+            </Text>
+
+          </View>
         ))}
       </View>
 
@@ -544,9 +596,7 @@ const ContactDetailScreen = () => {
       </View>
 
       {/* Tab content */}
-      <View
-        style={{ flex: 1 }}
-      >
+      <View style={{ flex: 1 }}>
         {renderTabContent()}
       </View>
 
@@ -579,109 +629,12 @@ const ContactDetailScreen = () => {
         onSelect={handleStatusChange}
       />
       {/* Call log modal */}
-      <Modal
+      <CallLogModal
         visible={showCallLogSheet}
-        transparent
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Log Call</Text>
-
-              <TouchableOpacity
-                onPress={() => {
-                  setShowCallLogSheet(false);
-                  reset();
-                }}
-              >
-                <Ionicons name="close" size={22} color="#6b7280" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Call Type */}
-            <Controller
-              control={control}
-              name="type"
-              render={({ field: { value, onChange } }) => (
-                <View style={styles.typeRow}>
-                  {['INCOMING', 'OUTGOING', 'MISSED'].map(type => (
-                    <TouchableOpacity
-                      key={type}
-                      onPress={() => onChange(type)}
-                      style={[
-                        styles.option,
-                        value === type && styles.activeOption,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          value === type && styles.activeOptionText,
-                        ]}
-                      >
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            />
-
-            {/* Duration */}
-            <Controller
-              control={control}
-              name="duration"
-              rules={{ required: 'Duration is required' }}
-              render={({ field: { value, onChange } }) => (
-                <>
-                  <TextInput
-                    placeholder="Duration in seconds"
-                    keyboardType="numeric"
-                    value={value}
-                    onChangeText={onChange}
-                    style={[
-                      styles.modalInput,
-                      errors.duration && { borderColor: '#ef4444' },
-                    ]}
-                  />
-
-                  {errors.duration && (
-                    <Text style={styles.errorText}>
-                      {errors.duration.message}
-                    </Text>
-                  )}
-                </>
-              )}
-            />
-
-            {/* Buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => {
-                  setShowCallLogSheet(false);
-                  reset();
-                }}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleSubmit((data) => {
-                  handleSaveCallLog(data);
-                  reset();
-                })}
-              >
-                <Text style={styles.saveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowCallLogSheet(false)}
+        onSubmit={handleSaveCallLog}
+        defaultValues={defaultValues}
+      />
 
     </SafeAreaView>
   );
@@ -727,16 +680,23 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingHorizontal: 16, paddingVertical: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
     gap: 10,
     borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
   },
   actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 9, borderRadius: 10,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb',
+    width: 48,
+    height: 48,
+    borderRadius: 24, // perfect circle
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
-  actionText: { fontSize: 14, fontWeight: '600' },
+  actionText: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 6,
+  },
 
   // Tabs
   tabBar: {
@@ -873,36 +833,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  typeRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
 
-  option: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-  },
-
-  activeOption: {
-    backgroundColor: '#dbeafe',
-    borderWidth: 1,
-    borderColor: '#3b82f6',
-  },
-
-  optionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-
-  activeOptionText: {
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
 
   input: {
     borderWidth: 1,
@@ -914,85 +845,16 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 8,
   },
-
-  errorText: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginBottom: 10,
-  },
- 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  iconBtn: {
+    width: 28,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: '#eef2ff',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    marginRight: 8,
   },
 
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
-  },
-
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#111827',
-    marginTop: 4,
-  },
-
-  modalActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 20,
-  },
-
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-  },
-
-  cancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6b7280',
-  },
-
-  saveBtn: {
-    flex: 1,
-    backgroundColor: '#6366f1',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-
-  saveText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
 });
 
 export default ContactDetailScreen;

@@ -49,7 +49,7 @@ export default function LoginScreen() {
       if (error.response) {
         console.log("Response error:", error.response);
         if (error.response.data?.message === "Invalid Credentials") {
-          Alert.alert("Error",error.response.data.message)
+          Alert.alert("Error", error.response.data.message)
         }
       } else if (error.request) {
         console.log("No response received:", error.request);

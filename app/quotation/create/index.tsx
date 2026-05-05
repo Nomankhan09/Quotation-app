@@ -3,6 +3,7 @@ import { RootState } from '@/store';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, FlatList, Alert,
   ScrollView, Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { router, useFocusEffect } from 'expo-router';
@@ -28,7 +29,8 @@ import { ActivityIndicator } from 'react-native';
 
 export default function CreateQuotationIndex() {
   const dispatch = useDispatch<AppDispatch>()
-
+  const { width } = useWindowDimensions();
+  const isSmall = width < 400;
   const leads = useSelector((s: any) => (s && s.leads ? s.leads.leads || [] : []));
   const qb = useSelector((state: RootState) => state.quotationBuilder);
   const token = useSelector((state: RootState) => state.auth.token);
@@ -267,7 +269,7 @@ export default function CreateQuotationIndex() {
     });
   };
 
-  const handleRemoveItem = (productId: number) => {
+  const handleRemoveItem = (productId: number, index: number) => {
     Alert.alert(
       'Remove Item',
       'Are you sure you want to remove this item?',
@@ -281,7 +283,7 @@ export default function CreateQuotationIndex() {
           style: 'destructive',
           onPress: () => {
             const updatedProducts = selectedProducts.filter(
-              (p) => p.productId !== productId
+              (_, i) => i !== index
             );
             dispatch({ type: 'quotationBuilder/setSelectedProducts', payload: updatedProducts });
           },
@@ -673,7 +675,7 @@ export default function CreateQuotationIndex() {
             <View style={styles.itemsCard}>
               {selectedProducts.map((item: any, index: number) => (
                 <View
-                  key={`${item.productId} - ${index}`}
+                  key={`${item.productId}-${index}`}
                   style={[
                     styles.itemCard,
                     index === selectedProducts.length - 1 && styles.itemCardLast
@@ -715,7 +717,7 @@ export default function CreateQuotationIndex() {
                     </TouchableOpacity> */}
                     <TouchableOpacity
                       style={[styles.itemActionButton, styles.deleteButton]}
-                      onPress={() => handleRemoveItem(item.productId)}
+                      onPress={() => handleRemoveItem(item.productId, index)}
                       activeOpacity={0.7}
                     >
                       <Trash2 size={16} color="#EF4444" />
@@ -942,23 +944,21 @@ export default function CreateQuotationIndex() {
             ]}
             onPress={handleSave}
             activeOpacity={0.8}
+            disabled={saveLoading}
           >
-            <Text style={styles.saveButtonText}>
-              {
-                saveLoading ? (
-                  <ActivityIndicator
-                    color="#fff"
-                    size="small"
-                  />
-                ) : (
-                  <Text style={styles.saveButtonText}>
-                    {isEditMode
-                      ? 'Update Quotation'
-                      : 'Add Quotation'}
-                  </Text>
-                )
-              }
-            </Text>
+            {saveLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text
+                style={styles.saveButtonText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                ellipsizeMode="tail"
+              >
+                {isEditMode ? 'Update Quotation' : 'Add Quotation'}
+              </Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -1701,6 +1701,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -1708,7 +1709,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   saveButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,

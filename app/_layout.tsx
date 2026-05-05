@@ -11,6 +11,7 @@ import LoginScreen from '@/components/LoginScreen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
+import { initErrorTracking } from './ErrorReporter';
 
 // import QuotationFlowNavigator from '@/components/QuotationFlowNavigator';
 
@@ -21,6 +22,7 @@ function AppNavigator() {
   const [isStartupComplete, setIsStartupComplete] = useState(false);
 
   useEffect(() => {
+    initErrorTracking();
     SplashScreen.hideAsync();
   }, []);
 

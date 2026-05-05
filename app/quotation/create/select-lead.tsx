@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,8 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { router, useLocalSearchParams } from 'expo-router';
-import { setSelectedLead, resetBuilder, setEditMode, resetForNewQuotation } from '@/store/slices/quotationBuilderSlice';
-import { addLead } from '@/store/slices/leadsSlice';
+import { setSelectedLead, setEditMode } from '@/store/slices/quotationBuilderSlice';
+import { addLead, Lead } from '@/store/slices/leadsSlice';
 import {
   ArrowLeft,
   Search,
@@ -39,6 +39,60 @@ import { Image } from 'react-native';
 import { Camera } from 'lucide-react-native';
 import { SOURCE_OPTIONS } from '@/constants/constant';
 
+// lead item 
+const LeadItem = React.memo(({ item, selectedLead, onSelect }: { item: any, selectedLead: any, onSelect: any }) => {
+  const isSelected = selectedLead === item.id;
+
+  return (
+    <TouchableOpacity
+      style={[styles.leadCard, isSelected && styles.selectedCard]}
+      onPress={() => onSelect(item.id)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.leadContent}>
+        <Avatar height={45} width={45} item={item} />
+
+        <View style={styles.leadInfo}>
+          <Text style={[styles.leadName, isSelected && styles.leadNameSelected]}>
+            {item.full_name}
+          </Text>
+
+          <View style={styles.leadDetails}>
+            <View style={styles.leadDetailRow}>
+              <Briefcase size={14} color="#94A3B8" />
+              <Text style={styles.leadDetailText}>{item.company_name}</Text>
+            </View>
+
+            {item.email && item.email !== 'NA' && (
+              <View style={styles.leadDetailRow}>
+                <Mail size={14} color="#94A3B8" />
+                <Text style={styles.leadDetailText} numberOfLines={1}>
+                  {item.email}
+                </Text>
+              </View>
+            )}
+
+            {item.phone && (
+              <View style={styles.leadDetailRow}>
+                <Phone size={14} color="#94A3B8" />
+                <Text style={styles.leadDetailText}>{item.phone}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {isSelected && (
+        <View style={styles.checkmarkWrapper}>
+          <View style={styles.checkmark}>
+            <Check size={16} color="#FFFFFF" />
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+});
+
 export default function SelectLeadScreen() {
   const { leads } = useSelector((state: RootState) => state.leads);
   const { selectedLead, isEditMode, editingQuotationId, prefillData: persistedPrefillData } = useSelector((state: RootState) => state.quotationBuilder);
@@ -50,12 +104,12 @@ export default function SelectLeadScreen() {
   const editMode = params.editMode === 'true';
   const [showStagePicker, setShowStagePicker] = useState(false);
   const urlPrefillData = params.prefillData ? JSON.parse(params.prefillData as string) : null;
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const prefillData = persistedPrefillData || urlPrefillData;
   const { statuses } = useSelector(
     (state: RootState) => state.contactStatus
   );
 
-  const hasPrefilled = useRef(false);
   const hasSetEditMode = useRef(false);
   const hasRestoredSelectedLead = useRef(false);
 
@@ -78,6 +132,7 @@ export default function SelectLeadScreen() {
   const selectedSource = watch('source');
   const profileImage = watch('profile_image');
 
+  // only edit mode
   useEffect(() => {
     if (editMode && !hasSetEditMode.current) {
       dispatch(setEditMode({
@@ -87,34 +142,44 @@ export default function SelectLeadScreen() {
       }));
       hasSetEditMode.current = true;
     }
+  }, [editMode]);
 
-    if (!hasRestoredSelectedLead.current) {
-      if (selectedLead) {
-        hasRestoredSelectedLead.current = true;
-      }
-      else if ((isEditMode || editMode) && prefillData && prefillData.leadId) {
-        dispatch(setSelectedLead(prefillData.leadId));
-        hasRestoredSelectedLead.current = true;
-        hasPrefilled.current = true;
-      }
-      else if (editingQuotationId && prefillData && prefillData.leadId) {
-        dispatch(setSelectedLead(prefillData.leadId));
-        hasRestoredSelectedLead.current = true;
-        hasPrefilled.current = true;
-      }
+  useEffect(() => {
+    if (hasRestoredSelectedLead.current) return;
+
+    if (selectedLead) {
+      hasRestoredSelectedLead.current = true;
+      return;
     }
-  }, [editMode, prefillData, selectedLead, dispatch, params.quotationId, isEditMode, editingQuotationId]);
 
-  const filteredLeads = leads.filter(lead =>
-    lead.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    if (prefillData?.leadId) {
+      dispatch(setSelectedLead(prefillData.leadId));
+      hasRestoredSelectedLead.current = true;
+    }
+  }, [selectedLead, prefillData]);
 
-  const handleSelectLead = (leadId: string) => {
+  // debounce for search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const filteredLeads = useMemo(() => {
+    const q = debouncedQuery.toLowerCase();
+    return leads.filter(lead =>
+      lead?.full_name?.toLowerCase().includes(q) ||
+      lead?.company_name?.toLowerCase().includes(q) ||
+      lead?.email?.toLowerCase().includes(q)
+    );
+  }, [leads, debouncedQuery]);
+
+  const handleSelectLead = useCallback((leadId: string) => {
     dispatch(setSelectedLead(Number(leadId)));
     router.back();
-  };
+  }, [dispatch]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -190,61 +255,9 @@ export default function SelectLeadScreen() {
     }
   };
 
-  const renderLeadItem = ({ item }: { item: any }) => {
-    const isSelected = selectedLead === item.id;
-
-    return (
-      <TouchableOpacity
-        style={[styles.leadCard, isSelected && styles.selectedCard]}
-        onPress={() => handleSelectLead(item.id)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.leadContent}>
-          {/* <View style={styles.leadAvatar}>
-            <User size={24} color={isSelected ? '#3B82F6' : '#64748B'} />
-          </View> */}
-          <Avatar height={45} width={45} item={item} />
-
-          <View style={styles.leadInfo}>
-            <Text style={[styles.leadName, isSelected && styles.leadNameSelected]}>
-              {item.full_name}
-            </Text>
-
-            <View style={styles.leadDetails}>
-              <View style={styles.leadDetailRow}>
-                <Briefcase size={14} color="#94A3B8" />
-                <Text style={styles.leadDetailText}>{item.company_name}</Text>
-              </View>
-
-              {item.email && item.email !== 'NA' && (
-                <View style={styles.leadDetailRow}>
-                  <Mail size={14} color="#94A3B8" />
-                  <Text style={styles.leadDetailText} numberOfLines={1}>
-                    {item.email}
-                  </Text>
-                </View>
-              )}
-
-              {item.phone && (
-                <View style={styles.leadDetailRow}>
-                  <Phone size={14} color="#94A3B8" />
-                  <Text style={styles.leadDetailText}>{item.phone}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {isSelected && (
-          <View style={styles.checkmarkWrapper}>
-            <View style={styles.checkmark}>
-              <Check size={16} color="#FFFFFF" />
-            </View>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const renderLeadItem = useCallback(({ item }: { item: any }) => {
+    return (<LeadItem item={item} selectedLead={selectedLead} onSelect={handleSelectLead} />)
+  }, [selectedLead]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -325,7 +338,7 @@ export default function SelectLeadScreen() {
           <View style={styles.selectedBannerContent}>
             <Check size={16} color="#10B981" />
             <Text style={styles.selectedBannerText}>
-              {leads.find(l => l.id === selectedLead)?.full_name} selected
+              {leads.find(l => Number(l.id) === selectedLead)?.full_name} selected
             </Text>
           </View>
           <TouchableOpacity
@@ -341,7 +354,7 @@ export default function SelectLeadScreen() {
       <FlatList
         data={filteredLeads}
         renderItem={renderLeadItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={[
           styles.listContainer,
           filteredLeads.length === 0 && styles.emptyListContainer

@@ -6,7 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import {
-  Users, Package, TrendingUp, IndianRupee, FileText, Tags, UserPlus, ClipboardList
+  Users, Package, TrendingUp, IndianRupee, FileText, Tags, UserPlus, ClipboardList,
+  Trophy
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
@@ -37,7 +38,7 @@ export default function HomeScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
   const { total_leads, total_products, total_categories, recent_leads, total_conversions,
     recent_tasks, loading
-  } =  useSelector((state: RootState) => state.dashboard);
+  } = useSelector((state: RootState) => state.dashboard);
 
   // Notification permission
   const requestPermissions = async () => {
@@ -71,10 +72,38 @@ export default function HomeScreen() {
   // }, []);
 
   const stats = [
-    { title: 'Total Contacts', value: total_leads.toString(), color: '#3B82F6', bgColor: '#EFF6FF', icon: Users },
-    { title: 'Products', value: total_products.toString(), color: '#10B981', bgColor: '#ECFDF5', icon: Package },
-    { title: 'Categories', value: total_categories.toString(), color: '#F59E0B', bgColor: '#FFFBEB', icon: Tags },
-    { title: 'Conversions', value: total_conversions.toString(), color: '#8B5CF6', bgColor: '#F5F3FF', icon: TrendingUp },
+    {
+      title: 'Total Leads',
+      value: total_leads.toString(),
+      // change: '+18%',
+      color: '#3B82F6',
+      bgColor: '#EFF6FF',
+      icon: Users,
+    },
+    {
+      title: 'Products',
+      value: total_products.toString(),
+      // change: '+12%',
+      color: '#8B5CF6',
+      bgColor: '#F5F3FF',
+      icon: Package,
+    },
+    {
+      title: 'Categories',
+      value: total_categories.toString(),
+      // change: '+20%',
+      color: '#10B981',
+      bgColor: '#ECFDF5',
+      icon: Tags,
+    },
+    {
+      title: 'Conversions',
+      value: total_conversions.toString(),
+      color: '#F97316',
+      bgColor: '#FFF7ED',
+      icon: TrendingUp,
+      // change: '+2%',
+    },
   ];
 
   const quickActions: QuickAction[] = [
@@ -125,13 +154,28 @@ export default function HomeScreen() {
       {/* Stats */}
       <View style={styles.statsContainer}>
         {stats.map((stat, index) => (
-          <TouchableOpacity key={index} style={[styles.statCard, { width: cardWidth }]}>
-            <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
-              <stat.icon color={stat.color} size={20} />
+          <View key={index} style={styles.statCard}>
+
+            {/* Top Row */}
+            <View style={styles.statTop}>
+              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+
+              <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
+                <stat.icon color={stat.color} size={18} />
+              </View>
             </View>
-            <Text style={styles.statValue}>{stat.value}</Text>
+
+            {/* Title */}
             <Text style={styles.statTitle}>{stat.title}</Text>
-          </TouchableOpacity>
+
+            {/* Growth */}
+            {/* {stat.change &&
+              <Text style={[styles.statChange, { color: '#16A34A' }]}>
+                ↑ {stat.change}
+              </Text>
+            } */}
+
+          </View>
         ))}
       </View>
 
@@ -239,39 +283,50 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingTop: 24,
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
+
   statCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 8,
-    marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
+
+  statTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
   statIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 4,
+    fontWeight: '700',
+    // color: '#0f172a',
   },
+
   statTitle: {
     fontSize: 12,
     color: '#64748B',
+    marginTop: 6,
+  },
+
+  statChange: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
   section: {
     paddingHorizontal: 24,

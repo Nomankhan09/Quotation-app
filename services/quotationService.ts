@@ -75,3 +75,10 @@ export const fetchQuotationsApi = async (
 
   return response.data;
 };
+
+export const fetchQuotationsByLead = async (leadId: number, token: string) => {
+  const response = await api.get(`/quotations/lead/${leadId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+};

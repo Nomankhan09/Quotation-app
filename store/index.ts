@@ -15,6 +15,8 @@ import contactStatusReducer from './slices/contactStatusSlice';
 import notesSlice from './slices/notesSlice';
 import activitySlice from './slices/activitySlice';
 import tasksReducer from './slices/taskSlice';
+import callLogReducer from './slices/callLogSlice';
+import dealReducer from './slices/dealSlice';
 
 // Persist config
 const persistConfig = {
@@ -38,6 +40,8 @@ const rootReducer = combineReducers({
   notes: notesSlice,
   activity: activitySlice,
   tasks: tasksReducer,
+  callLogs: callLogReducer,
+  deals: dealReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

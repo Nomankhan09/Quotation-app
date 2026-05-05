@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Linking,
+  AppState,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
@@ -30,6 +31,9 @@ import { loadStatuses } from '@/store/slices/contactStatusSlice';
 import { timeAgo } from '@/utils/date_format';
 import StatusPickerModal from '@/components/StatusPickerModal';
 import * as Notifications from 'expo-notifications';
+import { CallLogForm } from '../lead/contact-details';
+import CallLogModal from '@/components/CallLogModal';
+import { addCallLog } from '@/store/slices/callLogSlice';
 
 export default function LeadsScreen() {
   const dispatch = useDispatch<any>();
@@ -46,6 +50,50 @@ export default function LeadsScreen() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showSearch, setShowSearch] = useState(false);
+  const [showCallLogSheet, setShowCallLogSheet] = useState<boolean>(false);
+  const appState = useRef(AppState.currentState);
+  const callInitiatedRef = useRef(false);
+
+  // default value for call log
+  const defaultValues: CallLogForm = {
+    type: "OUTGOING",
+    durationObj: {
+      hours: "",
+      minutes: "",
+      seconds: "",
+    },
+  }
+
+  // save call log
+  const handleSaveCallLog = (data: CallLogForm) => {
+    let totalSeconds = 0;
+
+    if (data.type !== "MISSED") {
+      const h = parseInt(data.durationObj?.hours || '0', 10);
+      const m = parseInt(data.durationObj?.minutes || '0', 10);
+      const s = parseInt(data.durationObj?.seconds || '0', 10);
+
+      totalSeconds = h * 3600 + m * 60 + s;
+
+      if (totalSeconds === 0) {
+        return; // or show error
+      }
+    }
+
+    // time 
+    const now = new Date();
+    const formatted = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    dispatch(addCallLog({
+      duration: totalSeconds,
+      type: data.type,
+      lead_id: Number(selectedLead?.id),
+      timestamp: formatted,
+    }));
+
+    setShowCallLogSheet(false);
+  };
+
 
   const handlePress = (contact: any) => {
     router.push({
@@ -112,6 +160,26 @@ export default function LeadsScreen() {
 
   useEffect(() => {
     dispatch(loadStatuses());
+  }, []);
+
+  // call log thing
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextState === 'active' &&
+        callInitiatedRef.current
+      ) {
+        setShowCallLogSheet(true);
+
+        // reset flag
+        callInitiatedRef.current = false;
+      }
+
+      appState.current = nextState;
+    });
+
+    return () => sub.remove();
   }, []);
 
   const renderLeadItem = ({ item }: { item: Lead }) => {
@@ -184,10 +252,14 @@ export default function LeadsScreen() {
             <TouchableOpacity
               style={styles.callBtn}
               activeOpacity={0.75}
-              onPress={() =>
+              onPress={() => {
+                if (!item.phone) return;
+                callInitiatedRef.current = true;
                 Linking.openURL(
                   `tel:${item.phone}`
-                )
+                );
+                setSelectedLead(item);
+              }
               }
             >
 
@@ -384,6 +456,14 @@ export default function LeadsScreen() {
         currentStatus={selectedLead?.stage}
         loading={isUpdatingStatus}
         onSelect={handleStatusChange}
+      />
+
+      {/* Call log modal */}
+      <CallLogModal
+        visible={showCallLogSheet}
+        onClose={() => setShowCallLogSheet(false)}
+        onSubmit={handleSaveCallLog}
+        defaultValues={defaultValues}
       />
     </View>
   );

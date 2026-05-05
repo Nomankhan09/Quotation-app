@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { createQuotation, updateQuotation, fetchQuotations, fetchQuotationPerLead, updateQuotationStage } from '@/services/quotationService';
+import { createQuotation, updateQuotation, fetchQuotations, fetchQuotationPerLead, updateQuotationStage, fetchQuotationsByLead } from '@/services/quotationService';
 import { RootState } from '..';
 
 export interface Quotation {
@@ -31,6 +31,7 @@ interface QuotationsState {
     total: number;
     hasMorePages: boolean;
   };
+  quotation_lead: any[];
 }
 
 const initialState: QuotationsState = {
@@ -50,6 +51,7 @@ const initialState: QuotationsState = {
     total: 0,
     hasMorePages: false,
   },
+  quotation_lead: [],
 };
 
 export const saveQuotation = createAsyncThunk(
@@ -112,6 +114,19 @@ export const getQuotationsPerLead = createAsyncThunk(
       negotiation: response.data.negotiation ?? [],
       won: response.data.won ?? [],
     };
+  }
+);
+
+export const getQuotationsByLead = createAsyncThunk(
+  "quotations/getQuotationsByLead",
+  async ({ leadId }: { leadId: number }, { getState, rejectWithValue }) => {
+    const state = getState() as RootState;
+    const token = state.auth.token;
+    if (!token) {
+      return rejectWithValue("No authentication token found");
+    }
+    const response = await fetchQuotationsByLead(leadId, token);
+    return response.data;
   }
 );
 
@@ -266,6 +281,19 @@ const quotationsSlice = createSlice({
       .addCase(getQuotationsPerLead.rejected, (state) => {
         state.loading = false;
       })
+
+      // get quotation by leads
+      .addCase(getQuotationsByLead.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getQuotationsByLead.fulfilled, (state, action) => {
+        state.loading = false;
+        state.quotation_lead = action.payload;
+      })
+      .addCase(getQuotationsByLead.rejected, (state) => {
+        state.loading = false;
+      })
+
       .addCase(updateQuotationStageThunk.fulfilled, (state, action) => {
         const { id, stage, data } = action.payload;
 

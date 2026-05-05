@@ -234,9 +234,7 @@ export default function QuotationsScreen() {
             style={styles.addButton}
             onPress={() => {
               router.push("/quotation/create");
-              // InteractionManager.runAfterInteractions(() => {
-              //   dispatch(resetForNewQuotation());
-              // });
+              dispatch(resetForNewQuotation());
             }}
             activeOpacity={0.8}
           >

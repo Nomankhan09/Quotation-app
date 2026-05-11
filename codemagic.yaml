@@ -22,8 +22,8 @@ workflows:
       - name: Build iOS app
         script: |
           xcode-project build-ipa \
-            --workspace ios/quote-app.xcworkspace \
-            --scheme quote-app
+            --workspace ios/DecoLivings.xcworkspace \
+            --scheme DecoLivings
 
     artifacts:
       - build/ios/ipa/*.ipa

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
     View,
     Text,
@@ -7,10 +7,14 @@ import {
     FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Briefcase, Construction, FileText, Grid3x3, Package, Settings, Users } from 'lucide-react-native';
+import {
+    Briefcase, ChartNoAxesColumnIncreasing, Construction,
+    FileText, Grid3x3, Package, Settings
+} from 'lucide-react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Feature = {
     title: string;
@@ -24,26 +28,34 @@ type Feature = {
 export default function MoreFeaturesScreen() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
-    const { total_leads, total_products, total_categories, total_conversions, total_deals }
-        = useSelector((state: RootState) => state.dashboard);
+    const { data } = useSelector((state: RootState) => state.dashboard);
 
-    useEffect(() => {
-        dispatch(fetchDashboardSummary());
-    }, [dispatch]);
+    useFocusEffect(
+        React.useCallback(() => {
+            dispatch(fetchDashboardSummary());
+        }, [])
+    );
 
-    const FEATURES: Feature[] = [
-        { title: 'Category', subtitle: `${total_categories} categories`, icon: Grid3x3, color: '#2563eb', bg: '#eff6ff', screen: '/categories' },
-        { title: 'Products', subtitle: `${total_products} products`, icon: Package, color: '#059669', bg: '#ecfdf5', screen: '/products' },
-        { title: 'Quotations', subtitle: `${total_conversions} quotes`, icon: FileText, color: '#ea580c', bg: '#fff7ed', screen: '/(tabs)/quotations' },
-        // { title: 'Leads', subtitle: '5 active', icon: Users, color: '#6d28d9', bg: '#f5f3ff', screen: 'Leads' },
+    const FEATURES: Feature[] = useMemo(() => [
+        { title: 'Category', subtitle: `${data?.total_categories} categories`, icon: Grid3x3, color: '#2563eb', bg: '#eff6ff', screen: '/categories' },
+        { title: 'Products', subtitle: `${data?.total_products} products`, icon: Package, color: '#059669', bg: '#ecfdf5', screen: '/products' },
+        { title: 'Quotations', subtitle: `${data?.total_conversions} quotes`, icon: FileText, color: '#ea580c', bg: '#fff7ed', screen: '/(tabs)/quotations' },
         { title: 'Specifications', subtitle: 'Product Specs', icon: Construction, color: '#0ea5e9', bg: '#e0f2fe', screen: '/specifications' },
+        {
+            title: 'Deals',
+            subtitle: `${data?.active_deals } deals`,
+            icon: Briefcase,
+            color: '#7c3aed',
+            bg: '#f5f3ff',
+            screen: '/deal/deal-list'
+        },
         // {
-        //     title: 'Deals',
-        //     subtitle: `${total_deals} deals`,
-        //     icon: Briefcase,
-        //     color: '#7c3aed',
-        //     bg: '#f5f3ff',
-        //     screen: '/(tabs)/deal/'
+        //     title: 'Pipeline',
+        //     subtitle: `Deal Pipeline`,
+        //     icon: ChartNoAxesColumnIncreasing,
+        //     color: '#dc2626',
+        //     bg: '#fef2f2',
+        //     screen: '/pipeline'
         // },
         { title: 'Settings', subtitle: 'Profile', icon: Settings, color: '#6b7280', bg: '#f3f4f6', screen: '/settings' },
         // { title: 'Calendar', subtitle: '7 events', icon: 'calendar-outline', color: '#dc2626', bg: '#fef2f2', screen: 'Calendar' },
@@ -54,7 +66,12 @@ export default function MoreFeaturesScreen() {
 
         // { title: 'Notifications', subtitle: '5 alerts', icon: 'notifications-outline', color: '#1d4ed8', bg: '#eff6ff', screen: 'Notifications' },
         // { title: 'Companies', subtitle: '6 accounts', icon: 'briefcase-outline', color: '#374151', bg: '#f3f4f6', screen: 'Companies' },
-    ];
+    ], [
+        data?.total_categories,
+        data?.total_products,
+        data?.total_conversions,
+        data?.total_deals
+    ]);
 
     const renderItem = ({ item }: { item: Feature }) => (
         <TouchableOpacity

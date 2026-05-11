@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
     View,
     Text,
@@ -13,13 +13,12 @@ import {
     StatusBar,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigation } from "@react-navigation/native";
 import { AppDispatch, RootState } from "@/store";
-import { addDeal } from "@/store/slices/dealSlice";
+import { addDeal, editDeal as updateDeal } from "@/store/slices/dealSlice";
 import { CreateDealPayload } from "@/services/dealService";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { getQuotationsByLead } from "@/store/slices/quotationsSlice";
-import { formatDate, parseDate } from "@/utils/date_format";
+import { formatDate } from "@/utils/date_format";
 import { Product } from "@/store/slices/productsSlice";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
@@ -32,7 +31,7 @@ interface FormValues {
     expected_close_date: string;
     assigned_to: string;
     description: string;
-    quotation_id: string;
+    quotation_id: number[] | null;
 }
 
 interface FormErrors {
@@ -51,6 +50,7 @@ interface Quotation {
     products: Product[];
     created_at: string;
     subtotal: number;
+    total_amount: number
 }
 
 const fmtINR = (v: number) =>
@@ -216,12 +216,12 @@ function QuotationCard({
                     {`#Quote-${quotation.id}`}
                 </Text>
                 <Text style={styles.quotationMeta}>
-                    Products - {quotation.products.length} · {formatDate(new Date(quotation.created_at))}
+                    Products - {quotation.products?.length || 0} · {formatDate(new Date(quotation.created_at))}
                 </Text>
             </View>
 
             {/* Value */}
-            <Text style={styles.quotationValue}>{fmtINR(quotation.subtotal)}</Text>
+            <Text style={styles.quotationValue}>{fmtINR(quotation?.total_amount)}</Text>
         </TouchableOpacity>
     );
 }
@@ -231,10 +231,11 @@ function QuotationCard({
 export default function CreateDealScreen() {
     const params = useLocalSearchParams();
     const dispatch = useDispatch<AppDispatch>();
-    const navigation = useNavigation();
+    const router = useRouter();
     const preselectedLead = params?.lead
         ? JSON.parse(params.lead as string)
         : null;
+
     const submitting = useSelector((s: RootState) => s.deals.submitting);
     const { leads } = useSelector(
         (state: RootState) => state.leads
@@ -250,8 +251,52 @@ export default function CreateDealScreen() {
             expected_close_date: "",
             assigned_to: "",
             description: "",
-            quotation_id: "",
+            quotation_id: [],
         });
+
+    // for edit preselected
+    const editMode = params?.edit === "true";
+    const editDeal = useMemo(() => {
+        return params?.deal
+            ? JSON.parse(params.deal as string)
+            : null;
+    }, [params?.deal]);
+
+    useEffect(() => {
+        if (editMode && editDeal) {
+            set("lead_id", String(editDeal.lead_id || ""));
+            set("title", editDeal.title || "");
+            set("stage_id", String(editDeal.stage_id || ""));
+            set(
+                "expected_close_date",
+                editDeal.expected_close_date || ""
+            );
+            set(
+                "assigned_to",
+                editDeal.assigned_to
+                    ? String(editDeal.assigned_to)
+                    : ""
+            );
+            set("description", editDeal.description || "");
+            // set(
+            //     "quotation_id",
+            //     editDeal.quotation?.map((q: any) => q.id) || []
+            // );
+        }
+    }, [editMode, editDeal]);
+
+    useEffect(() => {
+        if (!values.lead_id) return;
+
+        dispatch(
+            getQuotationsByLead({
+                leadId: Number(values.lead_id),
+                deal_id: editMode
+                    ? editDeal?.id
+                    : null,
+            })
+        );
+    }, [values.lead_id]);
 
     // prefill lead
     useEffect(() => {
@@ -262,12 +307,16 @@ export default function CreateDealScreen() {
 
     // for quotation selection
     useEffect(() => {
-        if (!values.lead_id) {
-            set("quotation_id", "");
-            return;
-        };
+        if (!values.lead_id) return;
 
-        dispatch(getQuotationsByLead({ leadId: Number(values.lead_id) }));
+        dispatch(
+            getQuotationsByLead({
+                leadId: Number(values.lead_id),
+                deal_id: editMode
+                    ? editDeal?.id
+                    : null,
+            })
+        );
     }, [values.lead_id]);
 
     useEffect(() => {
@@ -282,6 +331,24 @@ export default function CreateDealScreen() {
             set("stage_id", String(stage.id));
         }
     }, [deal_stage]);
+
+    useEffect(() => {
+
+        if (
+            !editMode ||
+            !editDeal ||
+            quotation_lead.length === 0
+        ) return;
+
+        const existingQuoteIds =
+            editDeal.quotation?.map((q: any) => q.id) || [];
+
+        set(
+            "quotation_id",
+            existingQuoteIds
+        );
+
+    }, [quotation_lead, editMode, editDeal]);
 
     // date picker
     const openDatePicker = () => {
@@ -300,8 +367,8 @@ export default function CreateDealScreen() {
         });
     };
 
-    const selectedQuotation = quotation_lead.find(
-        (q) => String(q.id) === values.quotation_id
+    const selectedQuotation = quotation_lead.filter((q) =>
+        values?.quotation_id?.includes(Number(q.id))
     );
 
     const handleSave = async () => {
@@ -316,20 +383,46 @@ export default function CreateDealScreen() {
             expected_close_date: values.expected_close_date || null,
             assigned_to: values.assigned_to ? Number(values.assigned_to) : null,
             description: values.description.trim() || null,
-            quotation_id: values.quotation_id || null,
-            value: selectedQuotation?.value ?? null,
+            quotation_id: values.quotation_id?.map(Number) || null,
+            // value:
+            //     selectedQuotation.reduce(
+            //         (sum, q) =>
+            //             sum + Number(q.total_amount || 0),
+            //         0
+            //     ) || null,
         };
 
-        const result = await dispatch(addDeal(payload));
+        let result;
 
-        if (addDeal.fulfilled.match(result)) {
-            Alert.alert("Success", "Deal created successfully!", [
-                { text: "OK", onPress: () => navigation.goBack() },
+        if (editMode) {
+            result = await dispatch(
+                updateDeal({
+                    id: editDeal.id,
+                    payload,
+                })
+            );
+        } else {
+            result = await dispatch(addDeal(payload));
+        }
+
+        const isSuccess = editMode
+            ? updateDeal.fulfilled.match(result)
+            : addDeal.fulfilled.match(result);
+
+        if (isSuccess) {
+            Alert.alert("Success", editMode
+                ? "Deal updated successfully!"
+                : "Deal created successfully!", [
+                {
+                    text: "OK", onPress: () => router.back()
+                },
             ]);
         } else {
             Alert.alert(
                 "Error",
-                (result.payload as string) || "Failed to create deal. Please try again."
+                (result.payload as string) || (editMode
+                    ? "Failed to update deal."
+                    : "Failed to create deal.")
             );
         }
     };
@@ -342,12 +435,14 @@ export default function CreateDealScreen() {
             <View style={styles.header}>
                 <TouchableOpacity
                     style={styles.backBtn}
-                    onPress={() => navigation.goBack()}
+                    onPress={() => router.back()}
                     activeOpacity={0.7}
                 >
                     <Text style={styles.backIcon}>‹</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Create Deal</Text>
+                <Text style={styles.headerTitle}>
+                    {editMode ? "Edit Deal" : "Create Deal"}
+                </Text>
                 <View style={styles.headerBadge}>
                     <Text style={styles.headerBadgeText}>NEW</Text>
                 </View>
@@ -389,17 +484,17 @@ export default function CreateDealScreen() {
                                 </Text>
                             </View>
                         ) : (
-                            <Field label="Lead" required error={errors.lead_id}>
-                                <SelectPicker
-                                    placeholder="Select lead"
-                                    options={leads}
-                                    value={values.lead_id}
-                                    onSelect={(v) => { set("lead_id", v); touch("lead_id"); }}
-                                    hasError={!!errors.lead_id}
-                                    labelKey="full_name"
-                                    valueKey="id"
-                                />
-                            </Field>
+                            // <Field label="Lead" required error={errors.lead_id}>
+                            <SelectPicker
+                                placeholder="Select lead"
+                                options={leads}
+                                value={values.lead_id}
+                                onSelect={(v) => { set("lead_id", v); touch("lead_id"); }}
+                                hasError={!!errors.lead_id}
+                                labelKey="full_name"
+                                valueKey="id"
+                            />
+                            // </Field>
                         )}
                     </Field>
 
@@ -459,25 +554,42 @@ export default function CreateDealScreen() {
                                 )}
 
                                 {!loading &&
-                                    quotation_lead.map((q) => (
-                                        <QuotationCard
-                                            key={q.id}
-                                            quotation={q}
-                                            selected={values.quotation_id === String(q.id)}
-                                            onPress={() =>
-                                                set(
-                                                    "quotation_id",
-                                                    values.quotation_id === String(q.id)
-                                                        ? ""
-                                                        : String(q.id)
-                                                )
-                                            }
-                                        />
-                                    ))}
+                                    <View style={{ maxHeight: 350 }}>
+                                        <ScrollView nestedScrollEnabled>
+                                            {quotation_lead.map((q) => (
+                                                <QuotationCard
+                                                    key={q.id}
+                                                    quotation={q}
+                                                    selected={values.quotation_id?.includes(q.id)}
+                                                    onPress={() => {
+                                                        const quoteId = q.id;
+
+                                                        const exists =
+                                                            values.quotation_id?.includes(quoteId);
+
+                                                        if (exists) {
+                                                            set(
+                                                                "quotation_id",
+                                                                values?.quotation_id.filter(
+                                                                    (id) => id !== quoteId
+                                                                )
+                                                            );
+                                                        } else {
+                                                            set(
+                                                                "quotation_id",
+                                                                [...values?.quotation_id, quoteId]
+                                                            );
+                                                        }
+                                                    }}
+                                                />
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                }
                             </View>
 
                             {/* Deal value — read-only from quotation */}
-                            {selectedQuotation && (
+                            {/* {selectedQuotation && (
                                 <Field label="Deal Value">
                                     <View style={styles.valueRow}>
                                         <View style={styles.valuePrefixBox}>
@@ -485,15 +597,18 @@ export default function CreateDealScreen() {
                                         </View>
                                         <View style={[styles.input, styles.valueInput]}>
                                             <Text style={styles.valueText}>
-                                                {selectedQuotation?.subtotal
-                                                    ? selectedQuotation?.subtotal?.toLocaleString("en-IN")
-                                                    : "0"}
+                                                {selectedQuotation
+                                                    .reduce(
+                                                        (sum, q) => sum + (q.total_amount || 0),
+                                                        0
+                                                    )
+                                                    .toLocaleString("en-IN")}
                                             </Text>
                                         </View>
                                     </View>
                                     <Text style={styles.valueHint}>Auto-filled from selected quotation</Text>
                                 </Field>
-                            )}
+                            )} */}
                         </>
                     ) : null}
 
@@ -719,6 +834,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
+        marginBottom: 2
     },
     quotationCardSelected: {
         borderColor: "#2563eb",

@@ -1,3 +1,4 @@
+import { Lead } from "@/store/slices/leadsSlice";
 import api from "./api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -13,6 +14,18 @@ export interface Deal {
     stage_id: number | null;
     created_at: string;
     updated_at: string;
+    stage?: {
+        id: number;
+        stage_name: string;
+        color?: string;
+    };
+    quotation?: any[];
+    quotation_id?: number[] | null;
+    lead?: Lead;
+}
+
+export interface UpdateDealStagePayload {
+    stage_id: number;
 }
 
 export interface DealStage {
@@ -32,7 +45,7 @@ export interface CreateDealPayload {
     assigned_to?: number | null;
     description?: string | null;
     stage_id?: number | null;
-    quotation_id?: string | null;
+    quotation_id?: number[] | null;
 }
 
 export interface UpdateDealPayload extends Partial<CreateDealPayload> { }
@@ -40,7 +53,6 @@ export interface UpdateDealPayload extends Partial<CreateDealPayload> { }
 export interface DealFilters {
     lead_id?: number;
     stage_id?: number;
-    assigned_to?: number;
 }
 
 // ─── Service Functions ────────────────────────────────────────────────────────
@@ -109,4 +121,18 @@ export const fetchDealStages = async (
     });
 
     return response.data.data; // direct array
+};
+
+export const updateDealStage = async (
+    id: number,
+    data: UpdateDealStagePayload,
+    token: string
+): Promise<{ data: Deal }> => {
+    const response = await api.patch(`/deals/stage/${id}`, data, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    return response.data;
 };

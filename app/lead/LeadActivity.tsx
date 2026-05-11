@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, FlatList } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, FlatList, ScrollView } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { loadActivityByLead, IActivity } from '@/store/slices/activitySlice';
@@ -36,14 +36,17 @@ const formatType = (type: string) =>
     type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 // ─── Component ────────────────────────────────────────
-const LeadActivity = ({ lead }: any) => {
+const LeadActivity = ({
+    lead,
+    embedded = false,
+}: any) => {
     const dispatch = useDispatch<AppDispatch>();
     const { logs, loading, initialized } = useSelector((state: RootState) => state.activity);
 
     useEffect(() => {
-        if (lead?.id) {
-            dispatch(loadActivityByLead(lead.id));
-        }
+        if (!lead?.id) return;
+
+        dispatch(loadActivityByLead(lead.id));
     }, [lead?.id]);
 
     // ─── Render Item ──────────────────────────────────
@@ -86,8 +89,9 @@ const LeadActivity = ({ lead }: any) => {
             </View>
         );
     };
+
     return (
-        <View style={styles.wrapper}>
+        <View style={[styles.wrapper, embedded && { height: 350, overflow: 'hidden' }]}>
             {loading && (
                 <View style={styles.loadingRow}>
                     <ActivityIndicator size="small" color="#6366f1" />
@@ -103,12 +107,23 @@ const LeadActivity = ({ lead }: any) => {
             )}
 
             {!loading && logs.length > 0 && (
-                <FlatList
-                    data={logs}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
-                    contentContainerStyle={{ paddingHorizontal: 16 }}
-                />
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled
+                    contentContainerStyle={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 16,
+                        paddingBottom: 40,
+                    }}
+                >
+
+                    {logs.map((item, index) => (
+                        <View key={item.id}>
+                            {renderItem({ item, index })}
+                        </View>
+                    ))}
+
+                </ScrollView>
             )}
         </View>
     );
@@ -116,13 +131,14 @@ const LeadActivity = ({ lead }: any) => {
 
 const styles = StyleSheet.create({
     wrapper: {
-        paddingVertical: 16,
-        minHeight: 120,
+        // paddingVertical: 16,
+        // minHeight: 120,
         backgroundColor: 'white',
-        margin: 15,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#ebebeb',
+        // margin: 15,
+        // borderRadius: 10,
+        flex: 1,
+        // borderWidth: 1,
+        // borderColor: '#ebebeb',
     },
     loadingRow: {
         flexDirection: 'row',
@@ -149,7 +165,7 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 24,
+        marginBottom: 10,
         position: 'relative',
     },
     line: {

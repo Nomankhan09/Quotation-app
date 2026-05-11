@@ -37,6 +37,7 @@ export interface Discount {
 interface QuotationBuilderState {
   selectedLead: number | null;
   selectedProducts: SelectedProduct[];
+  selectedDeal: any | null;
   discount: Discount;
   terms: Term[];
   selectedTerms: number[];
@@ -57,6 +58,7 @@ interface QuotationBuilderState {
 const initialState: QuotationBuilderState = {
   selectedLead: null,
   selectedProducts: [],
+  selectedDeal: null,
   discount: { type: 'percentage', value: 0 },
   terms: [],
   selectedTerms: [],
@@ -210,6 +212,9 @@ const quotationBuilderSlice = createSlice({
     setSelectedLead: (state, action: PayloadAction<number>) => {
       state.selectedLead = action.payload;
     },
+    setSelectedDeal: (state, action: PayloadAction<any | null>) => {
+      state.selectedDeal = action.payload;
+    },
     setSelectedProducts: (state, action: PayloadAction<SelectedProduct[]>) => {
       state.selectedProducts = action.payload;
     },
@@ -231,6 +236,7 @@ const quotationBuilderSlice = createSlice({
     saveQuotation: (state, action: PayloadAction<any>) => {
       // Reset builder state after saving
       state.selectedLead = null;
+      state.selectedDeal = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
       state.selectedTerms = [];
@@ -243,6 +249,7 @@ const quotationBuilderSlice = createSlice({
       const force = action?.payload?.force ?? false;
       if (state.isEditMode && !force) {
         state.selectedLead = null;
+        state.selectedDeal = null;
         state.selectedProducts = [];
         state.discount = { type: 'percentage', value: 0 };
         state.selectedTerms = state.terms.map(t => t.id);
@@ -252,6 +259,7 @@ const quotationBuilderSlice = createSlice({
       } else {
         // Full reset for new quotations or forced reset
         state.selectedLead = null;
+        state.selectedDeal = null;
         state.selectedProducts = [];
         state.discount = { type: 'percentage', value: 0 };
         state.selectedTerms = [];
@@ -264,6 +272,7 @@ const quotationBuilderSlice = createSlice({
     },
     resetForNewQuotation: (state) => {
       state.selectedLead = null;
+      state.selectedDeal = null;
       state.selectedProducts = [];
       state.discount = { type: 'percentage', value: 0 };
       state.selectedTerms = state.terms.map(t => t.id);
@@ -295,6 +304,7 @@ const quotationBuilderSlice = createSlice({
       state.selectedSpecifications = action.payload.prefillData?.specifications || [];
       const specs = action.payload.prefillData?.specifications || [];
       state.selectedSpecifications = specs.map((s: any) => String(s.id));
+      state.selectedDeal = action.payload.prefillData?.deal || null;
 
       state.selectedTerms =
         action.payload.prefillData?.terms?.map(
@@ -416,6 +426,7 @@ const quotationBuilderSlice = createSlice({
 
 export const {
   setSelectedLead,
+  setSelectedDeal,
   setSelectedProducts,
   updateProductConfig,
   setDiscount,

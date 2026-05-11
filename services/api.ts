@@ -1,8 +1,8 @@
 import { sendErrorToServer } from "@/app/ErrorReporter";
 import axios from "axios";
 
-export const API_URL = "http://192.168.1.6:8000/api";
-// export const API_URL = "https://crmapp.flairm.com/quotepro/public/api";
+// export const API_URL = "http://192.168.1.7:8000/api";
+export const API_URL = "https://crmapp.flairm.com/quotepro/public/api";
 
 const api = axios.create({
   baseURL: API_URL,

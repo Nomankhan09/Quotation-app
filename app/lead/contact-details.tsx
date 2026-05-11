@@ -509,7 +509,7 @@ const ContactDetailScreen = () => {
   // ─── Main render ─────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Header */}
@@ -596,7 +596,7 @@ const ContactDetailScreen = () => {
       </View>
 
       {/* Tab content */}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minHeight: 0 }}>
         {renderTabContent()}
       </View>
 

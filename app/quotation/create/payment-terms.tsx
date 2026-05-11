@@ -201,7 +201,7 @@ export default function PaymentTermsScreen() {
         subtotal: parseFloat(subtotal.toFixed(2)),
         discount: {
           type: discount.type,
-          value: parseFloat(discount.value.toString()),
+          value: parseFloat(discount.value?.toString()),
         },
         discountAmount: parseFloat(discountAmount.toFixed(2)),
         totalAmount: parseFloat(finalTotal.toFixed(2)),

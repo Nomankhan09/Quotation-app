@@ -8,7 +8,17 @@ import {
     deleteTask,
     ITaskPayload,
     fetchTodayTask,
+    fetchTasksStatus,
+    fetchTasksPriority,
 } from '@/services/taskService';
+import { Lead } from './leadsSlice';
+
+export interface ITaskPriority {
+    id: number;
+    priority: string;
+    color: string;
+    icon: string;
+}
 
 export interface ITask {
     id: number;
@@ -17,22 +27,34 @@ export interface ITask {
     title: string;
     status: 'pending' | 'completed';
     due_date: string;
-    priority: 'Low' | 'Medium' | 'High' | null;
+    priority: ITaskPriority | null;
     notes: string | null;
     notification_id: string | null;
     created_at: string;
     updated_at: string;
+    contact: Lead;
 }
+
+export interface ITaskStatus {
+    id: number;
+    status: string;
+    color: string;
+}
+
 
 interface TaskState {
     tasks: ITask[];
     loading: boolean;
+    task_status: ITaskStatus[];
+    task_priority: ITaskPriority[];
     initialized: boolean;
 }
 
 const initialState: TaskState = {
     tasks: [],
     loading: false,
+    task_status: [],
+    task_priority: [],
     initialized: false,
 };
 
@@ -72,7 +94,7 @@ export const loadTasksByLead = createAsyncThunk(
 // ─── LOAD TODAY LEAD ─────────────────────────────────────────────────────────────
 export const loadTodayTasks = createAsyncThunk(
     'tasks/loadTodayTasks',
-    async (_,{ getState, rejectWithValue }) => {
+    async (_, { getState, rejectWithValue }) => {
         try {
             const state = getState() as RootState;
             const token = state.auth.token;
@@ -114,7 +136,7 @@ export const editTask = createAsyncThunk(
             if (!token) return rejectWithValue('No token');
             return await updateTask(id, data, token);
         } catch (err: any) {
-            console.log('edit task -> ',err.response);
+            console.log('edit task -> ', err.response);
             return rejectWithValue(err.response?.data || err.message);
         }
     }
@@ -137,6 +159,35 @@ export const removeTask = createAsyncThunk(
     }
 );
 
+// ─── LOAD TASK STATUS ─────────────────────────────────────────────────────────────
+export const loadTasksStatus = createAsyncThunk(
+    'tasks/loadTasksStatus',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const state = getState() as RootState;
+            const token = state.auth.token;
+            if (!token) return rejectWithValue('No authentication token');
+            return await fetchTasksStatus(token);
+        } catch (err: any) {
+            return rejectWithValue(err.response?.data || err.message);
+        }
+    }
+);
+
+// ─── LOAD TASK PRIORITY ─────────────────────────────────────────────────────────────
+export const loadTasksPriority = createAsyncThunk(
+    'tasks/loadTasksPriority',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const state = getState() as RootState;
+            const token = state.auth.token;
+            if (!token) return rejectWithValue('No authentication token');
+            return await fetchTasksPriority(token);
+        } catch (err: any) {
+            return rejectWithValue(err.response?.data || err.message);
+        }
+    }
+);
 
 // ─── SLICE ────────────────────────────────────────────────────────────────────
 const tasksSlice = createSlice({
@@ -192,7 +243,25 @@ const tasksSlice = createSlice({
             // DELETE
             .addCase(removeTask.fulfilled, (state, action) => {
                 state.tasks = state.tasks.filter(t => String(t.id) !== action.payload);
-            });
+            })
+
+            // LOAD TASK STATUS
+            .addCase(loadTasksStatus.pending, (state) => { state.loading = true; })
+            .addCase(loadTasksStatus.fulfilled, (state, action) => {
+                state.loading = false;
+                state.task_status = action.payload?.data ?? [];
+                state.initialized = true;
+            })
+            .addCase(loadTasksStatus.rejected, (state) => { state.loading = false; })
+
+            // LOAD TASK PRIORITY
+            .addCase(loadTasksPriority.pending, (state) => { state.loading = true; })
+            .addCase(loadTasksPriority.fulfilled, (state, action) => {
+                state.loading = false;
+                state.task_priority = action.payload?.data ?? [];
+                state.initialized = true;
+            })
+            .addCase(loadTasksPriority.rejected, (state) => { state.loading = false; });
     },
 });
 

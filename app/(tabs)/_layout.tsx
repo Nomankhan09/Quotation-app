@@ -68,22 +68,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* <Tabs.Screen
+      <Tabs.Screen
         name="pipeline"
         options={{
           title: 'Pipeline',
           tabBarIcon: ({ size, color }) => (
             <Kanban size={size} color={color} />
-          ),
-        }}
-      /> */}
-
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: 'tasks',
-          tabBarIcon: ({ size, color }) => (
-            <SquareCheck size={size} color={color} />
           ),
         }}
       />
@@ -97,6 +87,16 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* <Tabs.Screen
+        name="tasks"
+        options={{
+          title: 'tasks',
+          tabBarIcon: ({ size, color }) => (
+            <SquareCheck size={size} color={color} />
+          ),
+        }}
+      /> */}
 
 
     </Tabs>

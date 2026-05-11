@@ -119,13 +119,13 @@ export const getQuotationsPerLead = createAsyncThunk(
 
 export const getQuotationsByLead = createAsyncThunk(
   "quotations/getQuotationsByLead",
-  async ({ leadId }: { leadId: number }, { getState, rejectWithValue }) => {
+  async ({ leadId, deal_id }: { leadId: number, deal_id: number | null }, { getState, rejectWithValue }) => {
     const state = getState() as RootState;
     const token = state.auth.token;
     if (!token) {
       return rejectWithValue("No authentication token found");
     }
-    const response = await fetchQuotationsByLead(leadId, token);
+    const response = await fetchQuotationsByLead(leadId, deal_id, token);
     return response.data;
   }
 );

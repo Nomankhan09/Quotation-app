@@ -17,7 +17,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { formatToMySQL, parseDate } from '@/utils/date_format';
 import { openTimePicker } from '@/utils/time_picker';
-import { addTask, editTask, ITask, removeTask } from '@/store/slices/taskSlice';
+import { addTask, editTask, ITask, loadTasksPriority, removeTask } from '@/store/slices/taskSlice';
 import { cancelTaskNotification, scheduleTaskNotification } from '@/utils/notifications/taskNotification';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '@/store';
@@ -25,6 +25,10 @@ import { ITaskPayload } from '@/services/taskService';
 import { ILead } from '@/interface/leads';
 import { Alert } from 'react-native';
 import { Lead } from '@/store/slices/leadsSlice';
+import Avatar from '@/utils/avatar';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
+import { hexToRGBA } from '@/utils/stageBadge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type Priority = 'Low' | 'Medium' | 'High';
@@ -32,7 +36,7 @@ export type Priority = 'Low' | 'Medium' | 'High';
 type TaskFormData = {
     title: string;
     notes: string;
-    priority: Priority;
+    priority: number;
     due_date: string;
 };
 
@@ -46,17 +50,6 @@ interface IPayload {
     contacts?: Lead[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const PRIORITIES: { value: Priority; color: string; bg: string; icon: string }[] = [
-    { value: 'Low', color: '#22c55e', bg: '#dcfce7', icon: 'arrow-down-outline' },
-    { value: 'Medium', color: '#f59e0b', bg: '#fef3c7', icon: 'remove-outline' },
-    { value: 'High', color: '#ef4444', bg: '#fee2e2', icon: 'arrow-up-outline' },
-];
-
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#14b8a6', '#8b5cf6'];
-const avatarColor = (id: string | number) =>
-    AVATAR_COLORS[String(id).charCodeAt(0) % AVATAR_COLORS.length];
-
 const formatToDisplay = (mysqlDate: string) => {
     const date = new Date(mysqlDate.replace(' ', 'T'));
     const hours = date.getHours();
@@ -69,19 +62,6 @@ const formatToDisplay = (mysqlDate: string) => {
         `${date.getFullYear()} ` +
         `${String(h).padStart(2, '0')}:` +
         `${String(minutes).padStart(2, '0')} ${ampm}`
-    );
-};
-
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-const Avatar = ({ name, size = 36, color }: { name: string; size?: number; color: string }) => {
-    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-    return (
-        <View style={{
-            width: size, height: size, borderRadius: size / 2,
-            backgroundColor: color + '22', justifyContent: 'center', alignItems: 'center',
-        }}>
-            <Text style={{ fontSize: size * 0.35, fontWeight: '700', color }}>{initials}</Text>
-        </View>
     );
 };
 
@@ -178,7 +158,9 @@ const ContactSelector = ({
                     style={{ flex: 1 }}
                     renderItem={({ item }) => (
                         <TouchableOpacity style={csStyles.contactRow} onPress={() => onSelect(item)} activeOpacity={0.7}>
-                            <Avatar name={item.full_name} size={40} color={avatarColor(item.id)} />
+                            {item.full_name &&
+                                <Avatar item={item} height={40} width={40} />
+                            }
                             <View style={{ flex: 1, marginLeft: 12 }}>
                                 <Text style={csStyles.contactName}>{item.full_name}</Text>
                                 <Text style={csStyles.contactMeta}>
@@ -216,6 +198,25 @@ const TaskForm = ({
     const backdropOpacity = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
     const dispatch = useDispatch<AppDispatch>();
+    const { task_priority, initialized } = useSelector((state: RootState) => state.tasks);
+
+
+    const PRIORITIES = task_priority.map((item) => {
+        const statusColor = task_priority.find(
+            task => task.priority === item.priority)?.color;
+        const safeColor = statusColor || "#64748B";
+
+        const priority = item.priority?.toLowerCase()
+            .replace(/^./, c => c.toUpperCase());
+
+        return {
+            id: item.id,
+            value: priority as Priority,
+            color: item.color,
+            bg: hexToRGBA(safeColor, 0.12),
+            icon: item.icon,
+        };
+    });
 
     // When isTaskDirect, user can pick a contact; otherwise use the passed lead
     const [selectedContact, setSelectedContact] = useState<ILead | null>(lead || null);
@@ -229,7 +230,7 @@ const TaskForm = ({
         setValue,
         formState: { errors },
     } = useForm<TaskFormData>({
-        defaultValues: { title: '', notes: '', priority: 'Medium', due_date: '' },
+        defaultValues: { title: '', notes: '', priority: 2, due_date: '' },
     });
 
     const selectedPriority = watch('priority');
@@ -240,19 +241,19 @@ const TaskForm = ({
             reset({
                 title: editingTask.title || '',
                 notes: editingTask.notes || '',
-                priority: (editingTask.priority as Priority) || 'Medium',
+                priority: Number(editingTask.priority) || 2,
                 due_date: editingTask.due_date ? formatToDisplay(editingTask.due_date) : '',
             });
             // For editing: show the task's linked contact
             const nextContact =
                 contacts.find(c => Number(c.id) === Number(editingTask.contact_id)) || null;
 
-                setSelectedContact((prev: any) => {
+            setSelectedContact((prev: any) => {
                 if (prev?.id === nextContact?.id) return prev;
                 return nextContact;
             });
         } else {
-            reset({ title: '', notes: '', priority: 'Medium', due_date: '' });
+            reset({ title: '', notes: '', priority: 2, due_date: '' });
             setSelectedContact(lead || null);
         }
     }, [editingTask, modalVisible]);
@@ -272,7 +273,11 @@ const TaskForm = ({
         }
     }, [modalVisible]);
 
-
+    useEffect(() => {
+        if (!initialized) {
+            dispatch(loadTasksPriority());
+        }
+    }, []);
 
     // ── Date picker ──
     const openDatePicker = () => {
@@ -325,6 +330,10 @@ const TaskForm = ({
     const onSubmit = async (data: TaskFormData) => {
         if (!data.title.trim()) return;
 
+        const selectedPriorityObj = task_priority.find(
+            p => p.id === data.priority
+        );
+
         const payload: ITaskPayload = {
             contact_id: selectedContact ? selectedContact.id : null,
             title: data.title.trim(),
@@ -336,11 +345,15 @@ const TaskForm = ({
 
         let notificationId: string | null = null;
         if (data.due_date) {
+            const priorityLabel =
+                selectedPriorityObj?.priority
+                    ?.toLowerCase()
+                    .replace(/^./, c => c.toUpperCase()) || 'Medium';
             notificationId = await scheduleTaskNotification({
                 id: editingTask?.id ?? 'temp',
                 title: payload.title,
                 due_date: data.due_date,
-                priority: data.priority,
+                priority: priorityLabel
             });
         }
 
@@ -432,9 +445,9 @@ const TaskForm = ({
                                                     /* Selected state */
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                                                         <Avatar
-                                                            name={selectedContact.full_name}
-                                                            size={36}
-                                                            color={avatarColor(selectedContact.id)}
+                                                            item={selectedContact}
+                                                            height={36}
+                                                            width={36}
                                                         />
                                                         <View style={{ flex: 1, marginLeft: 10 }}>
                                                             <Text style={styles.contactName}>{selectedContact.full_name}</Text>
@@ -471,9 +484,9 @@ const TaskForm = ({
                                             <FieldLabel label="Related Contact" />
                                             <View style={styles.readonlyInput}>
                                                 <Avatar
-                                                    name={lead.full_name}
-                                                    size={34}
-                                                    color={avatarColor(lead.id)}
+                                                    item={lead}
+                                                    height={34}
+                                                    width={34}
                                                 />
                                                 <View style={{ flex: 1, marginLeft: 10 }}>
                                                     <Text style={styles.readonlyText}>{lead.full_name}</Text>
@@ -534,7 +547,7 @@ const TaskForm = ({
                                     <FieldLabel label="Priority" />
                                     <View style={styles.priorityRow}>
                                         {PRIORITIES.map(p => {
-                                            const active = selectedPriority === p.value;
+                                            const active = selectedPriority === p.id;
                                             return (
                                                 <TouchableOpacity
                                                     key={p.value}
@@ -542,7 +555,7 @@ const TaskForm = ({
                                                         styles.priorityChip,
                                                         { borderColor: active ? p.color : '#e5e7eb', backgroundColor: active ? p.bg : '#fafafa' },
                                                     ]}
-                                                    onPress={() => setValue('priority', p.value)}
+                                                    onPress={() => setValue('priority', p.id)}
                                                     activeOpacity={0.7}
                                                 >
                                                     <Ionicons

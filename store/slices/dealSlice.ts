@@ -11,6 +11,8 @@ import {
     UpdateDealPayload,
     fetchDealStages,
     DealStage,
+    updateDealStage,
+    UpdateDealStagePayload,
 } from "@/services/dealService";
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -18,23 +20,33 @@ import {
 interface DealState {
     deals: Deal[];
     deal_stage: DealStage[];
+    deal_stage_loading: boolean;
     selectedDeal: Deal | null;
     loading: boolean;
+    dealLoading: boolean;
+    selectedDealLoading: boolean;
     submitting: boolean;
     initialized: boolean;
     filters: DealFilters;
     error: string | null;
+    initialLoadDone: boolean;
+    stagesInitialized: boolean;
 }
 
 const initialState: DealState = {
     deals: [],
     deal_stage: [],
+    deal_stage_loading: false,
     selectedDeal: null,
     loading: false,
+    dealLoading: false,
+    selectedDealLoading: false,
     submitting: false,
     initialized: false,
     filters: {},
     error: null,
+    initialLoadDone: false,
+    stagesInitialized: false,
 };
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
@@ -128,6 +140,27 @@ export const loadDealStage = createAsyncThunk(
     }
 );
 
+export const editDealStage = createAsyncThunk(
+    "deals/editDealStage",
+    async (
+        { id, payload }: { id: number; payload: UpdateDealStagePayload },
+        { getState, rejectWithValue }
+    ) => {
+        try {
+            const state = getState() as RootState;
+            const token = state.auth.token;
+
+            if (!token) return rejectWithValue("No authentication token found");
+
+            const updated = await updateDealStage(id, payload, token);
+            return updated.data;
+        } catch (err: any) {
+            console.log('deal stage -> ', err.response)
+            return rejectWithValue(err.response?.data || err.message);
+        }
+    }
+);
+
 // ─── Slice ────────────────────────────────────────────────────────────────────
 
 const dealSlice = createSlice({
@@ -153,31 +186,33 @@ const dealSlice = createSlice({
         builder
             // ── LOAD ALL ──────────────────────────────────────────────────────
             .addCase(loadDeals.pending, (state) => {
-                state.loading = true;
+                state.dealLoading = true;
                 state.error = null;
             })
             .addCase(loadDeals.fulfilled, (state, action) => {
-                state.loading = false;
+                state.dealLoading = false;
+                state.initialLoadDone = true;
                 state.deals = action.payload;
                 state.initialized = true;
             })
             .addCase(loadDeals.rejected, (state, action) => {
-                state.loading = false;
+                state.dealLoading = false;
                 state.initialized = false;
+                state.initialLoadDone = true;
                 state.error = action.payload as string;
             })
 
             // ── LOAD BY ID ────────────────────────────────────────────────────
             .addCase(loadDealById.pending, (state) => {
-                state.loading = true;
+                state.selectedDealLoading = true;
                 state.error = null;
             })
             .addCase(loadDealById.fulfilled, (state, action) => {
-                state.loading = false;
+                state.selectedDealLoading = false;
                 state.selectedDeal = action.payload;
             })
             .addCase(loadDealById.rejected, (state, action) => {
-                state.loading = false;
+                state.selectedDealLoading = false;
                 state.error = action.payload as string;
             })
 
@@ -225,17 +260,50 @@ const dealSlice = createSlice({
 
             // Load deal stage
             .addCase(loadDealStage.pending, (state) => {
-                state.loading = true;
+                state.deal_stage_loading = true;
                 state.error = null;
             })
             .addCase(loadDealStage.fulfilled, (state, action) => {
-                state.loading = false;
+                state.deal_stage_loading = false;
                 state.deal_stage = action.payload;
                 state.initialized = true;
+                state.stagesInitialized = true;
             })
             .addCase(loadDealStage.rejected, (state, action) => {
-                state.loading = false;
+                state.deal_stage_loading = false;
                 state.initialized = false;
+                state.stagesInitialized = false;
+                state.error = action.payload as string;
+            })
+
+            // edit deal stage
+            .addCase(editDealStage.pending, (state) => {
+                state.submitting = true;
+            })
+            .addCase(editDealStage.fulfilled, (state, action) => {
+                state.submitting = false;
+
+                const updated = action.payload;
+
+                const idx = state.deals.findIndex(d => d.id === updated.id);
+
+                if (idx !== -1) {
+                    // 🔥 update only stage_id (and optionally stage object)
+                    state.deals[idx].stage_id = updated.stage_id;
+
+                    // optional if backend returns relation
+                    if (updated.stage) {
+                        state.deals[idx].stage = updated.stage;
+                    }
+                }
+
+                // update selected deal if open
+                if (state.selectedDeal?.id === updated.id) {
+                    state.selectedDeal = updated;
+                }
+            })
+            .addCase(editDealStage.rejected, (state, action) => {
+                state.submitting = false;
                 state.error = action.payload as string;
             });
     },

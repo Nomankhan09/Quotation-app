@@ -19,26 +19,28 @@ export const fetchDashboardSummary = createAsyncThunk(
   }
 );
 
-interface DashboardState {
+export interface DashboardData {
   total_leads: number;
   total_products: number;
   total_categories: number;
   total_conversions: number;
   total_deals: number;
   recent_leads: any[];
+  recent_tasks: any[] | null;
+  active_deals: number;
+  won_deals: number;
+  total_revenue: number;
+  pipeline_overview: any[];
+}
+
+interface DashboardState {
+  data: DashboardData | null;
   loading: boolean;
-  recent_tasks: any[];
 }
 
 const initialState: DashboardState = {
-  total_leads: 0,
-  total_products: 0,
-  total_categories: 0,
-  total_conversions: 0,
-  total_deals: 0,
-  recent_leads: [],
+  data: null,
   loading: false,
-  recent_tasks: [],
 };
 
 const dashboardSlice = createSlice({
@@ -52,13 +54,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchDashboardSummary.fulfilled, (state, action) => {
         state.loading = false;
-        state.total_leads = action.payload.total_leads;
-        state.total_products = action.payload.total_products;
-        state.total_categories = action.payload.total_categories;
-        state.total_conversions = action.payload.total_conversions;
-        state.recent_leads = action.payload.recent_leads || [];
-        state.recent_tasks = action.payload.recent_tasks || [];
-        state.total_deals = action.payload.total_deals;
+        state.data = action.payload;
       })
       .addCase(fetchDashboardSummary.rejected, (state) => {
         state.loading = false;

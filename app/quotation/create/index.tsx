@@ -14,7 +14,8 @@ import {
 import { generateQuotationHTML } from '@/services/pdfService';
 import {
   setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications,
-  loadAllTerms, loadAllPaymentTerms
+  loadAllTerms, loadAllPaymentTerms,
+  setSelectedDeal
 } from '@/store/slices/quotationBuilderSlice';
 import { updateQuotation } from '@/services/quotationService';
 import { getQuotations, saveQuotation } from '@/store/slices/quotationsSlice';
@@ -26,6 +27,7 @@ import * as Sharing from 'expo-sharing';
 import { generateFileName } from '@/utils/quotation';
 import { File, Paths } from 'expo-file-system';
 import { ActivityIndicator } from 'react-native';
+import { loadDeals } from '@/store/slices/dealSlice';
 
 export default function CreateQuotationIndex() {
   const dispatch = useDispatch<AppDispatch>()
@@ -47,6 +49,8 @@ export default function CreateQuotationIndex() {
   const selectedPaymentTerms = qb.selectedPaymentTerms || [];
   const isEditMode = qb.isEditMode || false;
   const editingQuotationId = qb.editingQuotationId || null;
+  const selectedDeal = qb.selectedDeal || null;
+  const { deals } = useSelector((state: RootState) => state.deals);
 
   const [showClientModal, setShowClientModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -55,6 +59,7 @@ export default function CreateQuotationIndex() {
   const [discountType, setDiscountType] = useState(reduxDiscount.type || 'percentage');
   const [discountValue, setDiscountValue] = useState(String(reduxDiscount.value || '0'));
   const [search, setSearch] = useState('');
+  const [showDealDropdown, setShowDealDropdown] = useState(false);
   const [savedQuotationId, setSavedQuotationId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -138,6 +143,7 @@ export default function CreateQuotationIndex() {
     terms: selectedTerms,
     paymentTerms: selectedPaymentTerms,
     status: 'sent',
+    // deal_id: selectedDeal?.id || null,
   });
 
   // universal save quotation
@@ -182,6 +188,13 @@ export default function CreateQuotationIndex() {
 
       setSavedQuotationId(quotationId);
 
+      dispatch(
+        getQuotations({
+          page: 1,
+          loadMore: false,
+        }) as any
+      );
+
       return quotationId;
     } catch (err) {
       console.log('add edit err', err);
@@ -220,6 +233,11 @@ export default function CreateQuotationIndex() {
     setDiscountType(reduxDiscount.type || 'percentage');
     setDiscountValue(String(reduxDiscount.value || '0'));
   }, [reduxDiscount]);
+
+  useEffect(() => {
+    dispatch(loadDeals({}));
+  }, []);
+
 
   // useEffect(() => {
   //   if (!isEditMode) return;
@@ -514,12 +532,12 @@ export default function CreateQuotationIndex() {
 
       const quotationId = await saveOrUpdateQuotation();
 
-      dispatch(
-        getQuotations({
-          page: 1,
-          loadMore: false,
-        }) as any
-      );
+      // dispatch(
+      //   getQuotations({
+      //     page: 1,
+      //     loadMore: false,
+      //   }) as any
+      // );
 
       // dispatch(resetForNewQuotation());
 
@@ -645,9 +663,151 @@ export default function CreateQuotationIndex() {
 
             <ChevronRight size={20} color="#94A3B8" />
           </TouchableOpacity>
-
-
         </View>
+
+        {/* Deal Selection */}
+        {/* <View style={styles.section}>
+
+          <Text style={styles.sectionLabel}>
+            Related Deal (Optional)
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.clientCard}
+            onPress={() =>
+              setShowDealDropdown(
+                !showDealDropdown
+              )
+            }
+          >
+            <View style={styles.clientCardContent}>
+
+              <View
+                style={[
+                  styles.clientIcon,
+                  {
+                    backgroundColor:
+                      '#F3E8FF'
+                  }
+                ]}
+              >
+                <FileText
+                  size={22}
+                  color="#9333EA"
+                />
+              </View>
+
+              <View style={styles.clientInfo}>
+                {
+                  selectedDeal ? (
+                    <>
+                      <Text style={styles.clientName}>
+                        {selectedDeal.title}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text
+                        style={
+                          styles.clientPlaceholder
+                        }
+                      >
+                        No deal selected
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.clientPlaceholderSub
+                        }
+                      >
+                        Link quotation to deal
+                      </Text>
+                    </>
+                  )
+                }
+              </View>
+            </View>
+
+            <ChevronRight
+              size={20}
+              color="#94A3B8"
+            />
+          </TouchableOpacity>
+
+          {
+            showDealDropdown && (
+              <View style={styles.stageDropdown}>
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  style={{
+                    maxHeight: 260,
+                  }}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      styles.stageOption,
+                      !selectedDeal &&
+                      styles.stageOptionActive
+                    ]}
+                    onPress={() => {
+                      dispatch(setSelectedDeal(null));
+                      setShowDealDropdown(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.stageOptionText,
+                        !selectedDeal &&
+                        styles.stageOptionTextActive
+                      ]}
+                    >
+                      No Deal
+                    </Text>
+                  </TouchableOpacity>
+
+                  {
+                    deals.map((deal: any) => {
+
+                      const active =
+                        selectedDeal?.id === deal.id;
+
+                      return (
+                        <TouchableOpacity
+                          key={deal.id}
+                          activeOpacity={0.7}
+                          style={[
+                            styles.stageOption,
+                            active &&
+                            styles.stageOptionActive
+                          ]}
+                          onPress={() => {
+                            dispatch(setSelectedDeal(deal));
+                            setShowDealDropdown(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.stageOptionText,
+                              active &&
+                              styles.stageOptionTextActive
+                            ]}
+                          >
+                            {deal.title}
+                          </Text>
+
+                         
+                        </TouchableOpacity>
+                      );
+                    })
+                  }
+                </ScrollView>
+              </View>
+            )
+          }
+        </View> */}
 
         {/* Items Section */}
         <View style={styles.section}>
@@ -1894,13 +2054,31 @@ const styles = StyleSheet.create({
   },
   stageDropdown: {
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginTop: 5,
-    borderRadius: 8,
+    borderColor: "#E2E8F0",
+    marginTop: 10,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+
+    elevation: 4,
   },
 
   stageOption: {
-    padding: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+
+    backgroundColor: '#FFFFFF',
   },
 
   stageOptionText: {

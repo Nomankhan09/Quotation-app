@@ -11,11 +11,13 @@ export interface ContactStatus {
 interface ContactStatusState {
     statuses: ContactStatus[];
     loading: boolean;
+    initialized: boolean;
 }
 
 const initialState: ContactStatusState = {
     statuses: [],
     loading: false,
+    initialized: false,
 };
 
 // ─── THUNK ─────────────────────────────────────────────
@@ -50,9 +52,11 @@ const contactStatusSlice = createSlice({
             .addCase(loadStatuses.fulfilled, (state, action) => {
                 state.loading = false;
                 state.statuses = action.payload;
+                state.initialized = true;
             })
             .addCase(loadStatuses.rejected, (state) => {
                 state.loading = false;
+                state.initialized = false;
             });
     },
 });

@@ -9,6 +9,14 @@ export const formatDate = (date: Date) => {
     });
 };
 
+export const formatOnlyDate = (date: Date) => {
+    return date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
+};
+
 export const getDaysAgo = (date: Date): string => {
     const today = new Date();
 

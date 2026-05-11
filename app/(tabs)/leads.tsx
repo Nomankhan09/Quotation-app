@@ -40,7 +40,7 @@ export default function LeadsScreen() {
   const { leads, search } = useSelector(
     (state: RootState) => state.leads
   );
-  const { statuses } = useSelector(
+  const { statuses, initialized } = useSelector(
     (state: RootState) => state.contactStatus
   );
   const [searchQuery, setSearchQuery] = useState(search);
@@ -159,7 +159,9 @@ export default function LeadsScreen() {
   };
 
   useEffect(() => {
-    dispatch(loadStatuses());
+    if (!initialized) {
+      dispatch(loadStatuses());
+    }
   }, []);
 
   // call log thing

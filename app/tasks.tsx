@@ -7,6 +7,7 @@ import {
     Platform,
     ScrollView,
     StatusBar,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TaskForm from '@/components/TaskForm'; // ← your existing TaskForm
@@ -14,6 +15,7 @@ import { editTask, ITask, loadTasks } from '@/store/slices/taskSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@/store';
 import { loadAllLeads } from '@/store/slices/leadsSlice';
+import Avatar from '@/utils/avatar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FilterTab = 'All' | 'Today' | 'High' | 'Done';
@@ -34,9 +36,6 @@ const formatShort = (dateStr: string) => {
 const getDaysOverdue = (dateStr: string) => {
     const date = new Date(dateStr.replace(' ', 'T'));
     const now = new Date();
-
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / 86400000);
 
     const time = date.toLocaleTimeString('en-US', {
         hour: 'numeric',
@@ -71,27 +70,9 @@ const PRIORITY_META: Record<Priority, { color: string; bg: string }> = {
     High: { color: '#ef4444', bg: '#fee2e2' },
 };
 
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#14b8a6', '#8b5cf6'];
-const avatarColor = (name: string) =>
-    AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-const Avatar = ({ name, size = 34 }: { name: string; size?: number }) => {
-    const color = avatarColor(name);
-    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-    return (
-        <View style={{
-            width: size, height: size, borderRadius: size / 2,
-            backgroundColor: color + '22', justifyContent: 'center', alignItems: 'center',
-        }}>
-            <Text style={{ fontSize: size * 0.35, fontWeight: '700', color }}>{initials}</Text>
-        </View>
-    );
-};
-
 // ─── Task Card ────────────────────────────────────────────────────────────────
 const TaskCard = ({ task, onPress, toggleComplete }: { task: ITask; onPress: () => void, toggleComplete: any }) => {
-    const pm = PRIORITY_META[task.priority as Priority] ?? PRIORITY_META.Medium;
+    const pm = PRIORITY_META[task.priority?.priority as Priority] ?? PRIORITY_META.Medium;
     const overdue = isOverdue(task.due_date) && task.status !== 'completed';
     const today = isToday(task.due_date) && !overdue;
     const done = task.status === 'completed';
@@ -130,7 +111,7 @@ const TaskCard = ({ task, onPress, toggleComplete }: { task: ITask; onPress: () 
 
                     <View style={{ alignItems: 'flex-end', gap: 3 }}>
                         <View style={[cardStyles.badge, { backgroundColor: pm.bg }]}>
-                            <Text style={[cardStyles.badgeText, { color: pm.color }]}>{task.priority}</Text>
+                            <Text style={[cardStyles.badgeText, { color: pm.color }]}>{task.priority?.priority}</Text>
                         </View>
                         {overdue && (
                             <View style={[cardStyles.badge, { backgroundColor: '#fee2e2' }]}>
@@ -163,7 +144,7 @@ const ReminderCard = ({ task }: { task: ITask }) => {
     return (
         <View style={[remStyles.card, { backgroundColor: bg, borderLeftColor: accent }]}>
             {(task as any).contact && (
-                <Avatar name={(task as any).contact.full_name} size={32} />
+                <Avatar item={task.contact} height={32} width={32} />
             )}
             <View style={{ flex: 1, marginLeft: (task as any).contact ? 10 : 0 }}>
                 <Text style={remStyles.title} numberOfLines={1}>{task.title}</Text>
@@ -186,8 +167,8 @@ export default function TaskScreen() {
 
     // ── Wire these to your Redux selectors ──
     const dispatch = useDispatch<AppDispatch>();
-    const { tasks } = useSelector((state: RootState) => state.tasks);
-    const { leads } = useSelector(
+    const { tasks, loading } = useSelector((state: RootState) => state.tasks);
+    const { leads, initialized } = useSelector(
         (state: RootState) => state.leads
     );
 
@@ -200,7 +181,7 @@ export default function TaskScreen() {
                 title: task.title,
                 status: newStatus,
                 due_date: task.due_date,
-                priority: task.priority,
+                priority: Number(task.priority?.id),
                 notes: task.notes,
             },
         }));
@@ -213,7 +194,7 @@ export default function TaskScreen() {
 
     const filtered = tasks.filter(t => {
         if (activeFilter === 'Today') return isToday(t.due_date);
-        if (activeFilter === 'High') return t.priority === 'High' && t.status !== 'completed';
+        if (activeFilter === 'High') return t.priority?.priority === 'high' && t.status !== 'completed';
         if (activeFilter === 'Done') return t.status === 'completed';
         return true;
     });
@@ -227,8 +208,12 @@ export default function TaskScreen() {
 
     useEffect(() => {
         dispatch(loadTasks());
-        dispatch(loadAllLeads());
-    }, [dispatch]);
+        setTimeout(() => {
+            if (!initialized) {
+                dispatch(loadAllLeads());
+            }
+        });
+    }, []);
 
     return (
         <View style={screenStyles.container}>
@@ -247,75 +232,91 @@ export default function TaskScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, marginTop: 10 }}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* ── Stats ── */}
-                <View style={screenStyles.statsRow}>
-                    {STATS.map(s => (
-                        <View key={s.label} style={[screenStyles.statCard, { backgroundColor: s.bg }]}>
-                            <Ionicons name={s.icon} size={15} color={s.color} />
-                            <Text style={[screenStyles.statNum, { color: s.color }]}>{s.value}</Text>
-                            <Text style={screenStyles.statLabel}>{s.label}</Text>
-                        </View>
-                    ))}
+            {loading ? (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255,255,255,0.6)' // optional blur effect
+                }}>
+                    <ActivityIndicator size="large" color="#3B82F6" />
                 </View>
-
-                {/* ── Reminders ── */}
-                {reminders.length > 0 && (
-                    <View style={screenStyles.section}>
-                        <View style={screenStyles.sectionHeader}>
-                            <Ionicons name="notifications-outline" size={15} color="#6b7280" style={{ marginRight: 6 }} />
-                            <Text style={screenStyles.sectionTitle}>Reminders</Text>
-                            <View style={screenStyles.countBadge}>
-                                <Text style={screenStyles.countBadgeText}>{reminders.length}</Text>
-                            </View>
+            ) :
+                <>
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, marginTop: 10 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* ── Stats ── */}
+                        <View style={screenStyles.statsRow}>
+                            {STATS.map(s => (
+                                <View key={s.label} style={[screenStyles.statCard, { backgroundColor: s.bg }]}>
+                                    <Ionicons name={s.icon} size={15} color={s.color} />
+                                    <Text style={[screenStyles.statNum, { color: s.color }]}>{s.value}</Text>
+                                    <Text style={screenStyles.statLabel}>{s.label}</Text>
+                                </View>
+                            ))}
                         </View>
-                        {reminders.map(t => <ReminderCard key={String(t.id)} task={t} />)}
-                    </View>
-                )}
 
-                {/* ── Filter tabs ── */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={{ marginBottom: 12 }}
-                    contentContainerStyle={{ gap: 8 }}
-                >
-                    {FILTERS.map(f => (
-                        <TouchableOpacity
-                            key={f}
-                            style={[screenStyles.tab, activeFilter === f && screenStyles.tabActive]}
-                            onPress={() => setActiveFilter(f)}
+                        {/* ── Reminders ── */}
+                        {reminders.length > 0 && (
+                            <View style={screenStyles.section}>
+                                <View style={screenStyles.sectionHeader}>
+                                    <Ionicons name="notifications-outline" size={15} color="#6b7280" style={{ marginRight: 6 }} />
+                                    <Text style={screenStyles.sectionTitle}>Reminders</Text>
+                                    <View style={screenStyles.countBadge}>
+                                        <Text style={screenStyles.countBadgeText}>{reminders.length}</Text>
+                                    </View>
+                                </View>
+                                {reminders.map(t => <ReminderCard key={String(t.id)} task={t} />)}
+                            </View>
+                        )}
+
+                        {/* ── Filter tabs ── */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={{ marginBottom: 12 }}
+                            contentContainerStyle={{ gap: 8 }}
                         >
-                            <Text style={[screenStyles.tabText, activeFilter === f && screenStyles.tabTextActive]}>
-                                {f}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                            {FILTERS.map(f => (
+                                <TouchableOpacity
+                                    key={f}
+                                    style={[screenStyles.tab, activeFilter === f && screenStyles.tabActive]}
+                                    onPress={() => setActiveFilter(f)}
+                                >
+                                    <Text style={[screenStyles.tabText, activeFilter === f && screenStyles.tabTextActive]}>
+                                        {f}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
 
-                {/* ── Task list ── */}
-                {filtered.length === 0 ? (
-                    <View style={screenStyles.empty}>
-                        <Ionicons name="checkmark-circle-outline" size={52} color="#e5e7eb" />
-                        <Text style={screenStyles.emptyTitle}>All clear here!</Text>
-                        <Text style={screenStyles.emptySubtitle}>Tap + Add to create a new task</Text>
-                    </View>
-                ) : (
-                    filtered.map((task: ITask) => (
-                        <TaskCard
-                            key={String(task.id)}
-                            task={task}
-                            onPress={() => { setEditingTask(task); setModalVisible(true); }}
-                            toggleComplete={toggleComplete}
-                        />
-                    ))
-                )}
-            </ScrollView>
-
+                        {/* ── Task list ── */}
+                        {filtered.length === 0 ? (
+                            <View style={screenStyles.empty}>
+                                <Ionicons name="checkmark-circle-outline" size={52} color="#e5e7eb" />
+                                <Text style={screenStyles.emptyTitle}>All clear here!</Text>
+                                <Text style={screenStyles.emptySubtitle}>Tap + Add to create a new task</Text>
+                            </View>
+                        ) : (
+                            filtered.map((task: ITask) => (
+                                <TaskCard
+                                    key={String(task.id)}
+                                    task={task}
+                                    onPress={() => { setEditingTask(task); setModalVisible(true); }}
+                                    toggleComplete={toggleComplete}
+                                />
+                            ))
+                        )}
+                    </ScrollView>
+                </>
+            }
 
             <TaskForm
                 modalVisible={modalVisible}

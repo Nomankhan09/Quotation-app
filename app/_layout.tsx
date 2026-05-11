@@ -11,10 +11,10 @@ import LoginScreen from '@/components/LoginScreen';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
-import { initErrorTracking } from './ErrorReporter';
-
+import { initErrorTracking, sendErrorToServer } from './ErrorReporter';
 // import QuotationFlowNavigator from '@/components/QuotationFlowNavigator';
 
+initErrorTracking();
 SplashScreen.preventAutoHideAsync();
 
 function AppNavigator() {
@@ -22,7 +22,6 @@ function AppNavigator() {
   const [isStartupComplete, setIsStartupComplete] = useState(false);
 
   useEffect(() => {
-    initErrorTracking();
     SplashScreen.hideAsync();
   }, []);
 
@@ -91,6 +90,37 @@ export default function RootLayout() {
     setupNotifications();
   }, []);
 
+  // Err boundry
+  class ErrorBoundary extends React.Component
+    <{ children: React.ReactNode }, { hasError: boolean }> {
+    constructor(props: any) {
+      super(props);
+
+      this.state = {
+        hasError: false,
+      };
+    }
+
+    static getDerivedStateFromError(error: any) {
+      return {
+        hasError: true,
+      };
+    }
+
+    componentDidCatch(error: any, info: any) {
+      sendErrorToServer({
+        message: error.message,
+        stack: error.stack,
+        type: "REACT_ERROR",
+      });
+
+    }
+
+    render() {
+      return this.props.children;
+    }
+  }
+
 
   return (
     <>
@@ -98,7 +128,9 @@ export default function RootLayout() {
         <Provider store={store}>
           <PersistGate loading={null} persistor={persistor}>
             <SafeAreaView style={{ flex: 1 }}>
-              <AppNavigator />
+              <ErrorBoundary>
+                <AppNavigator />
+              </ErrorBoundary>
             </SafeAreaView>
           </PersistGate>
         </Provider>

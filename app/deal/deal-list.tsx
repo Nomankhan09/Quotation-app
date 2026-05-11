@@ -7,30 +7,42 @@ import {
     TextInput,
     ScrollView,
     StyleSheet,
+    ActivityIndicator,
+    InteractionManager,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { Plus, Search, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import Avatar from '@/utils/avatar';
-import { loadDeals, loadDealStage } from '@/store/slices/dealSlice';
+import { editDealStage, loadDeals, loadDealStage } from '@/store/slices/dealSlice';
 import { timeAgo } from '@/utils/date_format';
+import StatusPickerModal from '@/components/StatusPickerModal';
+import { StageBadge } from '@/utils/stageBadge';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DealsScreen() {
     const dispatch = useDispatch<any>();
-
-    const { deals, deal_stage, loading } = useSelector(
+    const { deals, deal_stage, dealLoading, initialLoadDone, stagesInitialized } = useSelector(
         (state: RootState) => state.deals
     );
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStage, setSelectedStage] = useState('All');
     const [showSearch, setShowSearch] = useState(false);
+    const [showStageModal, setShowStageModal] = useState(false);
+    const [selectedDeal, setSelectedDeal] = useState<any>(null);
+    const [isUpdatingStage, setIsUpdatingStage] = useState(false);
 
     // 🔥 LOAD DATA
     useEffect(() => {
-        dispatch(loadDealStage());
         dispatch(loadDeals({}));
+
+        InteractionManager.runAfterInteractions(() => {
+            if (!stagesInitialized) {
+                dispatch(loadDealStage());
+            }
+        });
     }, []);
 
     // 🔍 FILTER
@@ -42,13 +54,18 @@ export default function DealsScreen() {
                 deal.title?.toLowerCase().includes(q) ||
                 deal.lead?.full_name?.toLowerCase().includes(q);
 
+            const selectedStageObj = deal_stage.find(
+                (s: any) => s.stage_name === selectedStage
+            );
+
             const matchesStage =
                 selectedStage === 'All' ||
-                deal.stage?.stage_name === selectedStage;
+                deal.stage_id === selectedStageObj?.id;
 
             return matchesSearch && matchesStage;
         });
-    }, [deals, searchQuery, selectedStage]);
+    }, [deals, searchQuery, selectedStage, deal_stage]);
+
 
     // 📦 RENDER ITEM
     const renderDealItem = ({ item }: any) => {
@@ -56,12 +73,12 @@ export default function DealsScreen() {
             <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.85}
-            // onPress={() =>
-            //     router.push({
-            //         pathname: '/deal/details',
-            //         params: { deal: JSON.stringify(item) },
-            //     })
-            // }
+                onPress={() =>
+                    router.push({
+                        pathname: '/deal/deal-detail',
+                        params: { id: item.id },
+                    })
+                }
             >
                 <Avatar item={item.lead} height={50} width={50} />
 
@@ -69,19 +86,29 @@ export default function DealsScreen() {
                     <Text style={styles.name}>{item.lead?.full_name}</Text>
                     <Text style={styles.sub}>{item.title}</Text>
 
-                    {item.stage && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>
-                                {item.stage.stage_name}
-                            </Text>
-                        </View>
-                    )}
+                    {item.quotation?.[0]?.total_amount &&
+                        <Text style={styles.value}>
+                            ₹{item.quotation?.[0]?.total_amount?.toLocaleString('en-IN')}
+                        </Text>
+                    }
                 </View>
 
                 <View style={styles.right}>
-                    <Text style={styles.value}>
-                        ₹{item.value?.toLocaleString('en-IN')}
-                    </Text>
+                    {item.stage && (
+                        <TouchableOpacity
+                            // style={styles.badge}
+                            onPress={() => {
+                                setSelectedDeal(item);
+                                setShowStageModal(true);
+                            }}
+                        >
+                            <StageBadge
+                                stage={item.stage?.stage_name}
+                                color={item.stage?.color}
+                            />
+                        </TouchableOpacity>
+                    )}
+
 
                     <Text style={styles.time}>
                         {timeAgo(item.created_at)}
@@ -91,51 +118,92 @@ export default function DealsScreen() {
         );
     };
 
+    // status change api
+    const handleStageChange = async (stageName: string) => {
+        if (!selectedDeal) return;
+
+        try {
+            setIsUpdatingStage(true);
+
+            // find stage id from name
+            const stageObj = deal_stage.find(
+                (s: any) => s.stage_name === stageName
+            );
+
+            if (!stageObj) return;
+
+            await dispatch(
+                editDealStage({
+                    id: selectedDeal.id,
+                    payload: {
+                        stage_id: stageObj.id,
+                    },
+                })
+            ).unwrap();
+
+            setShowStageModal(false);
+            setSelectedDeal(null);
+
+        } catch (e) {
+            console.log('Stage update error', e);
+        } finally {
+            setIsUpdatingStage(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
 
             {/* 🔥 HEADER */}
             <View style={styles.topContainer}>
                 <View style={styles.topBar}>
-
-                    {/* LEFT */}
-                    <TouchableOpacity
-                        style={styles.circleIconBtn}
-                        onPress={() => router.push('/deal/create-deal')}
-                    >
-                        <Plus size={22} color="#111827" />
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                        <Ionicons name="chevron-back" size={22} color="#007AFF" />
+                        <Text style={styles.backText}>Back</Text>
                     </TouchableOpacity>
 
                     {/* CENTER */}
-                    {!showSearch ? (
-                        <Text style={styles.screenTitle}>Deals</Text>
-                    ) : (
-                        <View style={styles.searchInlineWrap}>
-                            <Search size={18} color="#9CA3AF" />
-                            <TextInput
-                                autoFocus
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                placeholder="Search deals..."
-                                style={styles.inlineSearchInput}
-                            />
-                        </View>
-                    )}
-
-                    {/* RIGHT */}
-                    <TouchableOpacity
-                        style={styles.iconBtn}
-                        onPress={() => {
-                            if (showSearch) setSearchQuery('');
-                            setShowSearch(!showSearch);
-                        }}
-                    >
+                    <View style={{ flex: 1, alignItems: 'center' }}>
                         {!showSearch ? (
-                            <Search size={21} color="#111827" />
+                            <Text style={styles.screenTitle}>Deals</Text>
                         ) : (
-                            <X size={21} color="#111827" />
+                            <View style={styles.searchInlineWrap}>
+                                <Search size={18} color="#9CA3AF" />
+                                <TextInput
+                                    autoFocus
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    placeholder="Search deals..."
+                                    style={styles.inlineSearchInput}
+                                />
+                            </View>
                         )}
-                    </TouchableOpacity>
+                    </View>
+
+                    {/* Add button */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity
+                            style={styles.circleIconBtn}
+                            onPress={() => router.push('/deal/create-deal')}
+                        >
+                            <Plus size={22} color="#111827" />
+                        </TouchableOpacity>
+
+                        {/* RIGHT */}
+                        <TouchableOpacity
+                            style={styles.iconBtn}
+                            onPress={() => {
+                                if (showSearch) setSearchQuery('');
+                                setShowSearch(!showSearch);
+                            }}
+                        >
+                            {!showSearch ? (
+                                <Search size={21} color="#111827" />
+                            ) : (
+                                <X size={21} color="#111827" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
 
                 </View>
 
@@ -169,18 +237,51 @@ export default function DealsScreen() {
             </View>
 
             {/* 📋 LIST */}
-            <FlatList
-                data={filteredDeals}
-                renderItem={renderDealItem}
-                keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No deals found</Text>
+            <View style={{ flex: 1 }}>
+                <FlatList
+                    data={filteredDeals}
+                    renderItem={renderDealItem}
+                    keyExtractor={(item) => String(item.id)}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        initialLoadDone && !dealLoading ? (
+                            <View style={styles.empty}>
+                                <Text style={styles.emptyText}>No deals found</Text>
+                            </View>
+                        ) : null
+                    }
+                />
+                {dealLoading && (
+                    <View style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.6)' // optional blur effect
+                    }}>
+                        <ActivityIndicator size="large" color="#3B82F6" />
                     </View>
-                }
+                )}
+            </View>
+
+            {/* Deal status */}
+            <StatusPickerModal
+                visible={showStageModal}
+                onClose={() => setShowStageModal(false)}
+                statuses={deal_stage.map((s: any) => ({
+                    id: s.id,
+                    status: s.stage_name,
+                    color: s.color,
+                }))}
+                currentStatus={selectedDeal?.stage?.stage_name}
+                dealLoading={isUpdatingStage}
+                onSelect={handleStageChange}
             />
+
         </View>
     );
 }
@@ -214,11 +315,11 @@ const styles = StyleSheet.create({
     badgeText: {
         fontSize: 11,
         fontWeight: '600',
-        color: '#4f46e5',
+        // color: '#4f46e5',
     },
 
     right: { alignItems: 'flex-end' },
-    value: { fontSize: 14, fontWeight: '700' },
+    value: { fontSize: 14, fontWeight: '600', marginTop: 2 },
     time: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
 
     empty: { marginTop: 50, alignItems: 'center' },
@@ -240,8 +341,8 @@ const styles = StyleSheet.create({
         paddingBottom: 18,
     },
     circleIconBtn: {
-        width: 42,
-        height: 42,
+        width: 36,
+        height: 36,
         borderRadius: 999,
 
         backgroundColor: '#F8FAFC',
@@ -256,6 +357,8 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
         color: '#111827',
+        textAlign: 'center',
+        marginLeft: '10%'
     },
     searchInlineWrap: {
         flex: 1,
@@ -310,5 +413,13 @@ const styles = StyleSheet.create({
         height: 3,
         borderRadius: 999,
         backgroundColor: '#2563EB',
+    },
+    backBtn: { flexDirection: 'row', alignItems: 'center' },
+    backText: { color: '#007AFF', fontSize: 16, marginLeft: 2 },
+    backIcon: {
+        fontSize: 24,
+        color: "#0f172a",
+        marginTop: -2,
+        fontWeight: "300",
     },
 });

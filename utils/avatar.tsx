@@ -78,7 +78,7 @@ export default function Avatar({ item, height, width }: Props) {
                     source={{
                         uri:
                             item.profile_image_url ||
-                            item.profile_image
+                            item.profile_image || undefined
                     }}
                     style={{
                         width: '100%',
@@ -96,7 +96,7 @@ export default function Avatar({ item, height, width }: Props) {
                         { color: textColor }
                     ]}
                 >
-                    {getInitials(item.full_name)}
+                    {getInitials(item?.full_name)}
                 </Text>
             )}
 

@@ -49,7 +49,7 @@ const LeadTasks: React.FC<LeadTasksProps> = ({ lead }) => {
                 title: task.title,
                 status: newStatus,
                 due_date: task.due_date,
-                priority: task.priority,
+                priority: Number(task.priority),
                 notes: task.notes,
             },
         }));

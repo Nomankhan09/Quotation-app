@@ -5,7 +5,7 @@ export interface ITaskPayload {
     title: string;
     status: 'pending' | 'completed';
     due_date?: Date | string | null;
-    priority?: 'Low' | 'Medium' | 'High' | null;
+    priority?: number | null;
     notes?: string | null;
     notification_id?: string | null;
 }
@@ -47,6 +47,20 @@ export const deleteTask = async (id: string, token: string) => {
 
 export const fetchTodayTask = async (token: string) => {
     const response = await api.get(`/tasks/today`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+};
+
+export const fetchTasksStatus = async (token: string) => {
+    const response = await api.get('/tasks/status', {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+};
+
+export const fetchTasksPriority = async (token: string) => {
+    const response = await api.get('/tasks/priority', {
         headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;

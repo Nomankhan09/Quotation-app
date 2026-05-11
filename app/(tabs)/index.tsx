@@ -2,22 +2,25 @@ import React, { useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import {
-  Users, Package, TrendingUp, IndianRupee, FileText, Tags, UserPlus, ClipboardList,
-  Trophy
+  Users, TrendingUp, FileText, UserPlus, ClipboardList, Trophy, Handbag,
+  CheckCircle2,
+  Clock3,
+  Target,
+  Circle,
+  Handshake
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
 import { fetchDashboardSummary } from '@/store/slices/dashboardSlice';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { editTask, ITask } from '@/store/slices/taskSlice';
 import TaskList from '@/components/TaskList';
+import { formatAmount } from '@/utils/amount_format';
+import { MotiView } from 'moti';
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 64) / 2;
 
 type RoutePath =
   | '/(tabs)/quotations'
@@ -33,12 +36,9 @@ type QuickAction = {
 
 
 export default function HomeScreen() {
-  const navigation = useNavigation<any>();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { total_leads, total_products, total_categories, recent_leads, total_conversions,
-    recent_tasks, loading
-  } = useSelector((state: RootState) => state.dashboard);
+  const { data, loading } = useSelector((state: RootState) => state.dashboard);
 
   // Notification permission
   const requestPermissions = async () => {
@@ -57,48 +57,35 @@ export default function HomeScreen() {
     requestPermissions();
   }, [])
 
-  // useEffect(() => {
-  //   const init = async () => {
-  //     const crashlytics = (await import('@react-native-firebase/crashlytics')).default;
-
-  //     crashlytics().log('App started');
-  //   };
-
-  //   init();
-  // }, []);
-
-  // useEffect(() => {
-  //   const now = new Date().toISOString();
-  // }, []);
 
   const stats = [
     {
       title: 'Total Leads',
-      value: total_leads.toString(),
+      value: data?.total_leads?.toString(),
       // change: '+18%',
       color: '#3B82F6',
       bgColor: '#EFF6FF',
       icon: Users,
     },
     {
-      title: 'Products',
-      value: total_products.toString(),
+      title: 'Total Products',
+      value: data?.total_products?.toString() ?? '0',
       // change: '+12%',
       color: '#8B5CF6',
       bgColor: '#F5F3FF',
-      icon: Package,
+      icon: Handbag,
     },
     {
-      title: 'Categories',
-      value: total_categories.toString(),
+      title: 'Total Deals',
+      value: data?.total_deals?.toString() ?? '0',
       // change: '+20%',
       color: '#10B981',
       bgColor: '#ECFDF5',
-      icon: Tags,
+      icon: Handshake,
     },
     {
-      title: 'Conversions',
-      value: total_conversions.toString(),
+      title: 'Revenue',
+      value: `${data?.total_revenue ? formatAmount(Number(data?.total_revenue)) : 0}`,
       color: '#F97316',
       bgColor: '#FFF7ED',
       icon: TrendingUp,
@@ -124,7 +111,7 @@ export default function HomeScreen() {
           title: task.title,
           status: newStatus,
           due_date: task.due_date,
-          priority: task.priority,
+          priority: Number(task.priority?.id),
           notes: task.notes,
         },
       })).unwrap();
@@ -137,92 +124,218 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
-      <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.userName}>{user?.first_name + ' ' + user?.last_name || 'User'}</Text>
-          </View>
-          <View style={styles.headerStats}>
-            <IndianRupee color="#FFFFFF" size={24} />
-          </View>
-        </View>
-      </LinearGradient>
+      <View style={styles.topArea}>
+        <Text style={styles.welcomeTitle}>
+          Welcome back, {user?.first_name} 👋
+        </Text>
+
+        <Text style={styles.welcomeSubtitle}>
+          Here's what's happening with your business
+        </Text>
+      </View>
 
       {/* Stats */}
-      <View style={styles.statsContainer}>
-        {stats.map((stat, index) => (
-          <View key={index} style={styles.statCard}>
+      <View style={styles.statsGrid}> 
+        {loading || !data?.total_leads 
+          ? Array.from({ length: 4 }).map((_, index) => (
+            <View key={index} style={styles.metricCard}>
+              <View style={styles.metricTop}>
+                <View>
+                  <MotiView
+                    from={{ opacity: 0.3 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                      loop: true,
+                      type: 'timing',
+                      duration: 800,
+                    }}
+                    style={styles.skeletonValue}
+                  />
 
-            {/* Top Row */}
-            <View style={styles.statTop}>
-              <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                  <MotiView
+                    from={{ opacity: 0.3 }}
+                    animate={{ opacity: 1 }}
+                    transition={{
+                      loop: true,
+                      type: 'timing',
+                      duration: 800,
+                      delay: 100,
+                    }}
+                    style={styles.skeletonLabel}
+                  />
+                </View>
 
-              <View style={[styles.statIcon, { backgroundColor: stat.bgColor }]}>
-                <stat.icon color={stat.color} size={18} />
+                <MotiView
+                  from={{ opacity: 0.3 }}
+                  animate={{ opacity: 1 }}
+                  transition={{
+                    loop: true,
+                    type: 'timing',
+                    duration: 800,
+                  }}
+                  style={styles.skeletonIcon}
+                />
               </View>
             </View>
+          ))
+          : stats.map((item, index) => (
+            <View key={index} style={styles.metricCard}>
+              <View style={styles.metricTop}>
+                <View>
+                  <Text
+                    style={[
+                      styles.metricValue,
+                      { color: item.color },
+                    ]}
+                  >
+                    {item.value}
+                  </Text>
 
-            {/* Title */}
-            <Text style={styles.statTitle}>{stat.title}</Text>
+                  <Text style={styles.metricLabel}>
+                    {item.title}
+                  </Text>
+                </View>
 
-            {/* Growth */}
-            {/* {stat.change &&
-              <Text style={[styles.statChange, { color: '#16A34A' }]}>
-                ↑ {stat.change}
-              </Text>
-            } */}
-
-          </View>
-        ))}
+                <View
+                  style={[
+                    styles.metricIconWrap,
+                    { backgroundColor: item.bgColor },
+                  ]}
+                >
+                  <item.icon
+                    size={18}
+                    color={item.color}
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
       </View>
 
       {/* Quick Actions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Quick Actions
+          </Text>
+        </View>
+
+        <View style={styles.quickGrid}>
           {quickActions.map((action, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.quickActionCard}
+              style={styles.quickCard}
               onPress={() => router.push(action.screen)}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
-                <action.icon color={action.color} size={20} />
+              <View
+                style={[
+                  styles.quickIcon,
+                  { backgroundColor: action.color + '15' },
+                ]}
+              >
+                <action.icon
+                  size={18}
+                  color={action.color}
+                />
               </View>
-              <Text style={styles.quickActionText}>{action.title}</Text>
+
+              <Text style={styles.quickText}>
+                {action.title}
+              </Text>
+
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* Recent Leads */}
-      {/* <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Contacts</Text>
-        <View style={styles.recentLeads}>
-          {recent_leads.map((lead) => (
-            <TouchableOpacity key={lead.id} style={styles.leadCard}>
-              <View style={styles.leadInfo}>
-                <Text style={styles.leadName}>{lead.name}</Text>
-                <Text style={styles.leadCompany}>{lead.company}</Text>
-                <Text style={styles.leadEmail}>{lead.email}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+      {/* Pipeline */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Pipeline Overview
+          </Text>
+
+          {/* <Text style={styles.sectionFilter}>
+            This Month
+          </Text> */}
         </View>
-      </View> */}
+
+        <View style={styles.pipelineCard}>
+          {data?.pipeline_overview?.map((stage: any, index: number) => {
+            const isLast =
+              index === data.pipeline_overview.length - 1;
+
+            const StageIcon =
+              stage.name === 'Won'
+                ? CheckCircle2
+                : stage.name === 'Negotiation'
+                  ? Clock3
+                  : stage.name === 'Proposal'
+                    ? Target
+                    : Circle;
+
+            return (
+              <View
+                key={stage.id}
+                style={[
+                  styles.pipelineRow,
+                  !isLast && styles.pipelineBorder,
+                ]}
+              >
+                {/* Left */}
+                <View style={styles.pipelineLeft}>
+                  <View
+                    style={[
+                      styles.pipelineIconWrap,
+                      {
+                        backgroundColor: `${stage.color}15`,
+                      },
+                    ]}
+                  >
+                    <StageIcon
+                      size={14}
+                      color={stage.color}
+                    />
+                  </View>
+
+                  <Text style={styles.pipelineName}>
+                    {stage.name}
+                  </Text>
+                </View>
+
+                {/* Center */}
+                <View style={styles.pipelineCenter}>
+                  <Text numberOfLines={1} style={styles.pipelineDeals}>
+                    {stage.total_deals} Deals
+                  </Text>
+                </View>
+
+                {/* Right */}
+                <Text style={styles.pipelineRevenue}>
+                  {formatAmount(Number(stage.total_revenue))}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Recent Tasks */}
       <View style={[styles.section, { marginBottom: 15 }]}>
         <TaskList
           loading={loading as boolean}
-          tasks={recent_tasks}
+          tasks={data?.recent_tasks || []}
           toggleComplete={toggleComplete}
           isDashboard={true}
         />
       </View>
+
+      <View style={{ height: 20 }} />
     </ScrollView>
   );
 }
@@ -235,191 +348,246 @@ function getGreeting() {
   return 'Good evening!';
 }
 
-// function getStatusColor(status: string) {
-//   switch (status) {
-//     case 'new': return '#EFF6FF';
-//     case 'contacted': return '#FFFBEB';
-//     case 'qualified': return '#F0F9FF';
-//     case 'converted': return '#ECFDF5';
-//     default: return '#F1F5F9';
-//   }
-// }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
-  header: {
-    paddingTop: 40,
-    paddingBottom: 30,
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+
+  topArea: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
   },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.6,
   },
-  greeting: {
+
+  welcomeSubtitle: {
+    marginTop: 4,
     fontSize: 14,
-    color: '#BFDBFE',
-    marginBottom: 4,
+    color: '#6B7280',
+    fontWeight: '400',
   },
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  headerStats: {
-    width: 48,
-    height: 48,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statsContainer: {
+
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    marginTop: 20,
   },
 
-  statCard: {
+  metricCard: {
     width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
+    height: 100,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: '#F3F4F6',
   },
 
-  statTop: {
+  metricTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
 
-  statIcon: {
-    width: 40,
-    height: 40,
+  metricValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -1,
+  },
+
+  metricLabel: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  metricGrowth: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+
+  metricIconWrap: {
+    width: 42,
+    height: 42,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    // color: '#0f172a',
-  },
 
-  statTitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 6,
-  },
-
-  statChange: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
   section: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: 16,
+    marginTop: 20,
   },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  quickActionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    width: (width - 100) / 2,
-    marginHorizontal: 8,
-    marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  quickActionText: {
-    fontSize: 12,
+
+  sectionFilter: {
+    fontSize: 13,
+    color: '#6B7280',
     fontWeight: '500',
-    color: '#374151',
-    textAlign: 'center',
   },
-  recentLeads: {
-    gap: 12,
-    marginBottom: 15
-  },
-  leadCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+
+  quickGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+
+  quickCard: {
+    width: '31%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+
     alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+
+    paddingVertical: 18,
+  },
+
+  quickIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  quickText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+  },
+
+  quickGrowth: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+
+  pipelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    overflow: 'hidden',
+
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
     shadowRadius: 8,
+
     elevation: 2,
   },
-  leadInfo: {
+
+  pipelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+  },
+
+  pipelineBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  pipelineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+
     flex: 1,
   },
-  leadName: {
-    fontSize: 16,
+
+  pipelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+
+  pipelineIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+
+    justifyContent: 'center',
+    alignItems: 'center',
+
+    marginRight: 10,
+  },
+
+  pipelineName: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
+    color: '#111827',
   },
-  leadCompany: {
-    fontSize: 14,
-    color: '#64748B',
-    marginBottom: 2,
+
+  pipelineCenter: {
+    width: 90,
+    alignItems: 'center',
   },
-  leadEmail: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  leadStatus: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  leadStatusText: {
-    fontSize: 12,
+  pipelineDeals: {
+    fontSize: 13,
+    color: '#6B7280',
     fontWeight: '500',
-    color: '#374151',
+  },
+
+  pipelineRevenue: {
+    width: 70,
+    textAlign: 'right',
+
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+
+  // skeleton loader
+  skeletonValue: {
+    width: 80,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+  },
+
+  skeletonLabel: {
+    width: 60,
+    height: 14,
+    borderRadius: 6,
+    backgroundColor: '#E5E7EB',
+    marginTop: 10,
+  },
+
+  skeletonIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
   },
 });
-
-// import InvoiceListScreen from '@/src/ui/screens/InvoiceListScreen';
-
-// export default function Home() {
-//   return <InvoiceListScreen />;
-// }

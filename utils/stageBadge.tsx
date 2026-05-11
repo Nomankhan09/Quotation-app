@@ -1,5 +1,20 @@
 import { Text, View } from "react-native";
 
+export const hexToRGBA = (hex: string, alpha: number) => {
+
+    if (!hex.startsWith("#")) {
+        return `rgba(100,100,100,${alpha})`;
+    }
+
+    const cleanHex = hex.replace("#", "");
+
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export const StageBadge = ({
     stage,
     color,
@@ -12,20 +27,6 @@ export const StageBadge = ({
 
     const safeColor = color || "#64748B";
 
-    const hexToRGBA = (hex: string, alpha: number) => {
-
-        if (!hex.startsWith("#")) {
-            return `rgba(100,100,100,${alpha})`;
-        }
-
-        const cleanHex = hex.replace("#", "");
-
-        const r = parseInt(cleanHex.substring(0, 2), 16);
-        const g = parseInt(cleanHex.substring(2, 4), 16);
-        const b = parseInt(cleanHex.substring(4, 6), 16);
-
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    };
 
     const bgColor = hexToRGBA(safeColor, 0.12);
 

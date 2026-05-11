@@ -19,11 +19,11 @@ workflows:
           cd ios
           pod install
 
-      - name: Build iOS app
+      - name: Build iOS Simulator App
         script: |
-          xcode-project build-ipa \
-            --workspace ios/DecoLivings.xcworkspace \
-            --scheme DecoLivings
-
-    artifacts:
-      - build/ios/ipa/*.ipa
+          xcodebuild \
+            -workspace ios/DecoLivings.xcworkspace \
+            -scheme DecoLivings \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            build

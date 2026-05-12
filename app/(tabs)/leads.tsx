@@ -581,7 +581,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 999,
-
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -590,12 +589,9 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 999,
-
     backgroundColor: '#F8FAFC',
-
     justifyContent: 'center',
     alignItems: 'center',
-
     borderWidth: 1,
     borderColor: '#EEF2F7',
   },
@@ -603,16 +599,11 @@ const styles = StyleSheet.create({
   searchInlineWrap: {
     flex: 1,
     height: 42,
-
     flexDirection: 'row',
     alignItems: 'center',
-
     backgroundColor: '#F8FAFC',
-
     marginHorizontal: 14,
-
     borderRadius: 999,
-
     paddingHorizontal: 14,
   },
 

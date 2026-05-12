@@ -70,6 +70,7 @@ interface IDeal {
     stage: DealStage;
     lead_id?: string;
     lead: Lead;
+    quotationId: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -187,20 +188,6 @@ const DealCard = ({
             delayLongPress={300}
         >
             <Animated.View style={[cardStyles.card, { transform: [{ scale: scaleAnim }] }]}>
-                {/* Top row */}
-                <View style={cardStyles.topRow}>
-                    <View style={[cardStyles.stagePill, { backgroundColor: cfg.badge }]}>
-                        <View style={[cardStyles.pillDot, { backgroundColor: cfg.dot }]} />
-                        <Text style={[cardStyles.pillText, { color: cfg.color }]}>
-                            {deal.stage.stage_name}
-                        </Text>
-                    </View>
-
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={cardStyles.date}>{deal.date}</Text>
-                        <Text style={cardStyles.quoteId}>#QUO-{deal.id}</Text>
-                    </View>
-                </View>
 
                 {/* Customer */}
                 <View style={cardStyles.customerRow}>
@@ -222,27 +209,34 @@ const DealCard = ({
                 </View>
 
                 {/* Amount */}
-                <Text style={cardStyles.amount}>
-                    {
-                        deal.amount > 0 ? (
-                            <Text style={cardStyles.amount}>
-                                {formatAmount(deal.amount)}
-                            </Text>
-                        ) : (
-                            <Text
-                                style={[
-                                    cardStyles.amount,
-                                    {
-                                        fontSize: 16,
-                                        color: '#9ca3af',
-                                    }
-                                ]}
-                            >
-                                No quotation yet
-                            </Text>
-                        )
-                    }
-                </Text>
+                <View style={{ flex: 1, flexDirection: 'row' }}>
+                    <Text style={cardStyles.amount}>
+                        {
+                            deal.amount > 0 ? (
+                                <Text style={cardStyles.amount}>
+                                    {formatAmount(deal.amount)}
+                                </Text>
+                            ) : (
+                                <Text
+                                    style={[
+                                        cardStyles.amount,
+                                        {
+                                            fontSize: 16,
+                                            color: '#9ca3af',
+                                        }
+                                    ]}
+                                >
+                                    No quotation yet
+                                </Text>
+                            )
+                        }
+                    </Text>
+
+                    <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        <Text style={cardStyles.date}>{deal.date}</Text>
+                        <Text style={cardStyles.quoteId}>#QUO-{deal.quotationId}</Text>
+                    </View>
+                </View>
 
                 {/* Probability bar */}
                 <View style={cardStyles.barTrack}>
@@ -270,6 +264,7 @@ export default function PipelineScreen() {
     const formattedDeals: IDeal[] = useMemo(() => {
         return deals.map((deal: any) => ({
             id: deal.id.toString(),
+            quotationId: deal.quotation[0]?.id,
             customer: deal.lead?.full_name || 'Unknown',
             company: deal.lead?.company_name,
             amount: Number(deal.quotation[0]?.total_amount || 0),
@@ -370,7 +365,6 @@ export default function PipelineScreen() {
                         const stageDeals = formattedDeals.filter(
                             d => d.stage?.id === stage.id
                         );
-
                         return (
                             <View
                                 key={stage.id}

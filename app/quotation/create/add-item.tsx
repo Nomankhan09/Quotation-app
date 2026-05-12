@@ -282,7 +282,7 @@ export default function AddItemScreen() {
 
     let newList;
     if (isEditMode && editIndex !== null) {
-      newList = selectedProducts.map((p) =>
+      newList = selectedProducts.map((p: any) =>
         p.lineItemId === item.lineItemId
           ? item
           : p

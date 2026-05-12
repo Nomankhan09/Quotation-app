@@ -43,7 +43,13 @@ export const loadStatuses = createAsyncThunk(
 const contactStatusSlice = createSlice({
     name: "contactStatus",
     initialState,
-    reducers: {},
+    reducers: {
+        resetContactStatuses: (state) => {
+            state.statuses = [];
+            state.loading = false;
+            state.initialized = false;
+        },
+    },
     extraReducers: (builder) => {
         builder
             .addCase(loadStatuses.pending, (state) => {
@@ -60,5 +66,7 @@ const contactStatusSlice = createSlice({
             });
     },
 });
+
+export const { resetContactStatuses } = contactStatusSlice.actions;
 
 export default contactStatusSlice.reducer;

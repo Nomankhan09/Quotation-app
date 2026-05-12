@@ -39,7 +39,7 @@ export default function TaskList({ loading, tasks, openEdit, toggleComplete, isD
     };
 
     const navigateTasks = () => {
-        router.push('/(tabs)/tasks');
+        router.push('/tasks');
     }
 
     return (
@@ -47,9 +47,9 @@ export default function TaskList({ loading, tasks, openEdit, toggleComplete, isD
             {isDashboard && (
                 <View style={styles.taskHeader}>
                     <Text style={styles.taskHeaderTitle}>TODAY'S TASKS</Text>
-                    <TouchableOpacity onPress={navigateTasks}>
+                    {/* <TouchableOpacity onPress={navigateTasks}>
                         <Text style={styles.viewAll}>View All</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                 </View>
             )}
             {loading ? (

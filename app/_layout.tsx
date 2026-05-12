@@ -12,6 +12,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { initErrorTracking, sendErrorToServer } from './ErrorReporter';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 // import QuotationFlowNavigator from '@/components/QuotationFlowNavigator';
 
 initErrorTracking();
@@ -123,7 +124,7 @@ export default function RootLayout() {
 
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <Provider store={store}>
           <PersistGate loading={null} persistor={persistor}>
@@ -136,6 +137,6 @@ export default function RootLayout() {
         </Provider>
         <StatusBar style="auto" />
       </SafeAreaProvider>
-    </>
+    </GestureHandlerRootView>
   );
 }

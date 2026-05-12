@@ -15,6 +15,7 @@ import { User, Bell, Shield, CircleHelp as HelpCircle, LogOut, ChevronRight, Mai
 import { router } from 'expo-router';
 import { resetBuilder } from '@/store/slices/quotationBuilderSlice';
 import { Ionicons } from '@expo/vector-icons';
+import { resetContactStatuses } from '@/store/slices/contactStatusSlice';
 
 export default function SettingsScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
           onPress: () => {
             dispatch(resetBuilder({ force: true }));
             dispatch(logout());
+            dispatch(resetContactStatuses());
           },
         },
       ]

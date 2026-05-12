@@ -66,6 +66,7 @@ export default function CreateQuotationIndex() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [navigating, setNavigating] = useState(false);
 
   // group product
   const groupedProducts = selectedProducts.reduce(
@@ -87,24 +88,18 @@ export default function CreateQuotationIndex() {
     quotationId?: number
   ) => ({
     user,
-
     quotationNumber:
       quotationId ||
       editingQuotationId ||
       `QT-${Date.now()}`,
-
     lead: selectedClient,
-
     products: selectedProducts,
-
     subtotal,
-
     discount: {
       type:
         discountType === 'percentage'
           ? 'percent'
           : 'fixed',
-
       value:
         Number(discountValue) || 0,
     },
@@ -128,9 +123,7 @@ export default function CreateQuotationIndex() {
             .map(Number)
             .includes(Number(p.id))
       ),
-
-    created_at:
-      new Date().toISOString(),
+    created_at: new Date().toISOString(),
   });
 
   // Reusable Quotation payload
@@ -301,14 +294,25 @@ export default function CreateQuotationIndex() {
   };
 
   const handleEditItem = (item: any, index: number) => {
-    router.push({
-      pathname: '/quotation/create/add-item',
-      params: {
-        editMode: 'true',
-        itemIndex: index.toString(),
-        itemData: JSON.stringify(item),
-      },
-    });
+    if (navigating) return;
+    setNavigating(true);
+
+    try {
+      router.push({
+        pathname: '/quotation/create/add-item',
+        params: {
+          editMode: 'true',
+          itemIndex: index.toString(),
+          itemData: JSON.stringify(item),
+        },
+      });
+    } catch (err) {
+      console.log('handle edit item -> ', err);
+    } finally {
+      setTimeout(() => {
+        setNavigating(false);
+      }, 800);
+    }
   };
 
   const handleRemoveItem = (productId: number, index: number) => {
@@ -890,12 +894,10 @@ export default function CreateQuotationIndex() {
                           ]}
                         >
                           <TouchableOpacity
+                            disabled={navigating}
                             style={styles.cleanItemContent}
                             onPress={() =>
-                              handleEditItem(
-                                item,
-                                globalIndex
-                              )
+                              handleEditItem(item, globalIndex)
                             }
                             activeOpacity={0.7}
                           >

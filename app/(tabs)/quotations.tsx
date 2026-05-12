@@ -25,6 +25,7 @@ import {
   Clock,
   TrendingUp,
   ChevronRight,
+  X,
 } from "lucide-react-native";
 import { resetForNewQuotation } from "@/store/slices/quotationBuilderSlice";
 import Avatar from "@/utils/avatar";
@@ -33,8 +34,8 @@ export default function QuotationsScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { quotations, loading, loadingMore, search, pagination } = useSelector((state: RootState) => state.quotations);
   const { leads } = useSelector((state: RootState) => state.leads);
-  const { products } = useSelector((state: RootState) => state.products);
   const [searchQuery, setSearchQuery] = useState(search);
+  const [showSearch, setShowSearch] = useState(false);
 
   // Debounced search
   useEffect(() => {
@@ -56,13 +57,6 @@ export default function QuotationsScreen() {
 
   const getLeadName = (leadId: string) => {
     return leads.find((lead) => lead.id == leadId)?.full_name || "Unknown Lead";
-  };
-
-  const getProductNames = (productIds: string[]) => {
-    return productIds
-      .map((id) => products.find((p) => p.id == id)?.product_name)
-      .filter(Boolean)
-      .join(", ");
   };
 
   const getStatusConfig = (status: Quotation["status"]) => {
@@ -121,56 +115,71 @@ export default function QuotationsScreen() {
         onPress={() => router.push(`/quotation/edit/${item.id}`)}
         activeOpacity={0.7}
       >
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.quotationInfo}>
-            <Text style={styles.quotationNumber}>#{item.quotationNumber}</Text>
-            <View style={styles.quotationMeta}>
-              <Clock size={12} color="#94A3B8" />
-              <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {statusConfig.label}
-            </Text>
-          </View>
-        </View>
 
         {/* Client Info */}
         <View style={styles.clientSection}>
-          {/* <View style={styles.clientIcon}> */}
-          {/* <User size={18} color="#3B82F6" /> */}
-          <Avatar height={45} width={45} item={lead} />
+          {lead &&
+            <Avatar height={45} width={45} item={lead} />
+          }
           {/* </View> */}
           <View style={styles.clientInfo}>
-            <Text style={styles.clientLabel}>Client</Text>
+            {/* <Text style={styles.clientLabel}> */}
+            <Text style={styles.clientLabel}>#{item.quotationNumber}</Text>
+            {/* </Text> */}
             <Text style={styles.clientName}>{getLeadName(item.leadId)}</Text>
           </View>
-        </View>
+          <View>
+            {/* <View
+              style={[styles.statusBadge,
+              {
+                borderColor:
+                  statusConfig.color,
+                backgroundColor:
+                  `${statusConfig.color}12`,
+              },]}
+            >
+              <View style={[
+                styles.statusDot, {
+                  backgroundColor:
+                    statusConfig.color,
+                },]}
+              />
 
-        {/* Products */}
-        {item.productIds.length > 0 && (
-          <View style={styles.productsSection}>
-            <View style={styles.productsBadge}>
-              <Package size={14} color="#64748B" />
-              <Text style={styles.productsCount}>
-                {item.productIds.length} item{item.productIds.length !== 1 ? 's' : ''}
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color:
+                      statusConfig.color,
+                  },
+                ]}
+              >
+                {statusConfig.label}
               </Text>
+
+            </View> */}
+            <View style={styles.quotationInfo}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Clock
+                  size={12}
+                  color="#64748B"
+                  strokeWidth={2.2}
+                />
+                <Text style={styles.dateText}>
+                  {formatDate(item.created_at)}
+                </Text>
+              </View>
+
             </View>
-            <Text style={styles.productsPreview} numberOfLines={1}>
-              {getProductNames(item.productIds)}
-            </Text>
           </View>
-        )}
+        </View>
 
         {/* Amount & Action */}
         <View style={styles.cardFooter}>
           <View style={styles.amountSection}>
             <Text style={styles.amountLabel}>Total Amount</Text>
             <View style={styles.amountValue}>
-              <IndianRupee size={18} color="#10B981" />
+              <IndianRupee size={16} color="#10B981" />
               <Text style={styles.amountText}>
                 {item.totalAmount.toFixed(2)}
               </Text>
@@ -179,7 +188,7 @@ export default function QuotationsScreen() {
 
           <View style={styles.viewAction}>
             <Text style={styles.viewActionText}>View</Text>
-            <ChevronRight size={16} color="#3B82F6" />
+            <ChevronRight size={15} color="#3B82F6" />
           </View>
         </View>
 
@@ -188,7 +197,7 @@ export default function QuotationsScreen() {
           <View style={styles.notesContainer}>
             <FileText size={12} color="#64748B" />
             <Text style={styles.notesText} numberOfLines={2}>
-              {item.notes}
+              {`Products: ${item.productIds.length} ${item.productIds.length > 1 ? 'items' : 'item'}`}
             </Text>
           </View>
         )}
@@ -208,27 +217,8 @@ export default function QuotationsScreen() {
   return (
     <View style={styles.container}>
       {/* Enhanced Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.title}>Quotations</Text>
-            <View style={styles.statsRow}>
-              {/* <View style={styles.statBadge}>
-                <FileText size={14} color="#3B82F6" />
-                <Text style={styles.statText}>
-                  {quotations.length} total
-                </Text>
-              </View> */}
-              {quotations.filter(q => q.status === 'accepted').length > 0 && (
-                <View style={[styles.statBadge, styles.statBadgeSuccess]}>
-                  <TrendingUp size={14} color="#10B981" />
-                  <Text style={[styles.statText, styles.statTextSuccess]}>
-                    {quotations.filter(q => q.status === 'accepted').length} accepted
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
+      <View style={styles.topContainer}>
+        <View style={styles.topBar}>
 
           <TouchableOpacity
             style={styles.addButton}
@@ -238,28 +228,76 @@ export default function QuotationsScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Plus size={22} color="#FFFFFF" />
+            <Plus size={22} color="#111827" />
           </TouchableOpacity>
-        </View>
-      </View>
+          {!showSearch ? (
+            <Text style={styles.title}>Quotations</Text>
+          ) :
+            (
+              // {/* Search Bar */}
+              <View style={styles.searchSection}>
+                <Search size={18} color="#9CA3AF" />
+                <TextInput
+                  autoFocus
+                  style={styles.searchInput}
+                  placeholder="Search quotations..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor="#9CA3AF"
+                />
 
-      {/* Search Bar */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchContainer}>
-          <Search size={20} color="#94A3B8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search quotations..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#CBD5E1"
-          />
-        </View>
+              </View>
+            )}
+          {/* <View style={styles.headerContent}>
+            <View style={styles.statsRow}>
+              <View style={styles.statBadge}>
+                <FileText size={14} color="#3B82F6" />
+                <Text style={styles.statText}>
+                  {quotations.length} total
+                </Text>
+              </View>
+              {quotations.filter(q => q.status === 'accepted').length > 0 && (
+                <View style={[styles.statBadge, styles.statBadgeSuccess]}>
+                  <TrendingUp size={14} color="#10B981" />
+                  <Text style={[styles.statText, styles.statTextSuccess]}>
+                    {quotations.filter(q => q.status === 'accepted').length} accepted
+                  </Text>
+                </View>
+              )}
+            </View>
 
-        {/* Filter button - placeholder for future functionality */}
-        {/* <TouchableOpacity style={styles.filterButton} activeOpacity={0.7}>
-          <Filter size={20} color="#64748B" />
-        </TouchableOpacity> */}
+          </View> */}
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => {
+              if (showSearch) {
+                setSearchQuery('');
+                dispatch(setSearch(''));
+                dispatch(clearQuotations());
+                dispatch(
+                  getQuotations({
+                    page: 1,
+                    search: '',
+                  })
+                );
+              }
+              setShowSearch(!showSearch);
+            }}
+          >
+            {!showSearch ?
+              <Search
+                size={21}
+                color="#111827"
+              /> :
+              <X
+                size={21}
+                color="#111827"
+              />
+            }
+
+          </TouchableOpacity>
+
+        </View>
       </View>
 
       {/* Quotations List */}
@@ -334,6 +372,20 @@ const styles = StyleSheet.create({
   },
 
   // Header
+  topContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
   header: {
     backgroundColor: '#FFFFFF',
     paddingTop: Platform.OS === 'ios' ? 60 : 20,
@@ -356,11 +408,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.8,
-    marginBottom: 8,
   },
   statsRow: {
     flexDirection: 'row',
@@ -388,26 +438,33 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 26,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
   },
 
   // Search Section
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchSection: {
+    flex: 1,
+    height: 42,
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 14,
+    borderRadius: 999,
+    paddingHorizontal: 14,
   },
   searchContainer: {
     flex: 1,
@@ -423,9 +480,9 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#0F172A',
-    fontWeight: '500',
+    marginLeft: 10,
+    fontSize: 15,
+    color: '#111827',
   },
   filterButton: {
     width: 48,
@@ -453,8 +510,9 @@ const styles = StyleSheet.create({
   quotationCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
@@ -463,20 +521,23 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
+
   quotationInfo: {
-    flex: 1,
+    marginTop: 0,
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
   },
   quotationNumber: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.3,
@@ -488,20 +549,34 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dateText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '700',
+    marginLeft: 6,
+    letterSpacing: 0.2,
   },
   statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
   },
+
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    marginRight: 6,
+  },
+
   statusText: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    letterSpacing: 0.2,
   },
 
   // Client Section
@@ -509,7 +584,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   clientIcon: {
     width: 40,
@@ -585,7 +660,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   amountText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#10B981',
     letterSpacing: -0.3,
@@ -594,13 +669,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     backgroundColor: '#EFF6FF',
     borderRadius: 10,
   },
   viewActionText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#3B82F6',
   },
@@ -609,8 +684,8 @@ const styles = StyleSheet.create({
   notesContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: 6,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },

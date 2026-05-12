@@ -461,12 +461,12 @@ export default function QuotationDetailsScreen() {
               <Text style={styles.quotationNumber}>#{quotation.quotationNumber}</Text>
             </View>
 
-            <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+            {/* <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
               <StatusIcon size={14} color={statusConfig.color} />
               <Text style={[styles.statusText, { color: statusConfig.color }]}>
                 {statusConfig.label}
               </Text>
-            </View>
+            </View> */}
           </View>
 
           <View style={styles.heroMeta}>

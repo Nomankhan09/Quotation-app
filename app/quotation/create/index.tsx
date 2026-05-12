@@ -15,7 +15,8 @@ import { generateQuotationHTML } from '@/services/pdfService';
 import {
   setDiscount, resetForNewQuotation, setSpecifications, loadAllSpecifications,
   loadAllTerms, loadAllPaymentTerms,
-  setSelectedDeal
+  setSelectedDeal,
+  setQuotationRefresh
 } from '@/store/slices/quotationBuilderSlice';
 import { updateQuotation } from '@/services/quotationService';
 import { getQuotations, saveQuotation } from '@/store/slices/quotationsSlice';
@@ -65,6 +66,22 @@ export default function CreateQuotationIndex() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+
+  // group product
+  const groupedProducts = selectedProducts.reduce(
+    (acc: any, item: any) => {
+      const key = item.categoryName;
+
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+
+      acc[key].push(item);
+
+      return acc;
+    },
+    {}
+  );
 
   const buildQuotationData = (
     quotationId?: number
@@ -154,24 +171,31 @@ export default function CreateQuotationIndex() {
       const payload = buildQuotationPayload();
 
       // UPDATE
-      if (
-        isEditMode ||
-        savedQuotationId
-      ) {
-
-        const quotationId =
-          savedQuotationId || Number(editingQuotationId);
+      if (isEditMode || savedQuotationId) {
+        const quotationId = savedQuotationId || Number(editingQuotationId);
 
         if (!token) {
           Alert.alert('Authentication required', 'Please sign in to update quotations.');
           return;
         }
 
-
         await updateQuotation(
           quotationId,
           payload,
           token
+        );
+
+        // after edit call api
+        dispatch(getQuotations({
+          page: 1,
+          loadMore: false,
+        }) as any);
+
+        dispatch(
+          setQuotationRefresh({
+            quotationId: Number(quotationId),
+            refresh: true,
+          })
         );
 
         return quotationId;
@@ -374,9 +398,7 @@ export default function CreateQuotationIndex() {
 
     let quotationId;
     try {
-
-      quotationId =
-        await saveOrUpdateQuotation();
+      quotationId = await saveOrUpdateQuotation();
 
       if (!quotationId) {
         return;
@@ -642,7 +664,7 @@ export default function CreateQuotationIndex() {
           >
             <View style={styles.clientCardContent}>
               {selectedClient ?
-                <Avatar height={45} width={45} item={selectedClient} />
+                <Avatar height={44} width={44} item={selectedClient} />
                 : <View style={styles.clientIcon}>
                   <User size={24} color="#3B82F6" />
                 </View>
@@ -833,56 +855,121 @@ export default function CreateQuotationIndex() {
             </View>
           ) : (
             <View style={styles.itemsCard}>
-              {selectedProducts.map((item: any, index: number) => (
+              {Object.entries(groupedProducts).map(([category, items, index]: any) => (
                 <View
-                  key={`${item.productId}-${index}`}
-                  style={[
-                    styles.itemCard,
-                    index === selectedProducts.length - 1 && styles.itemCardLast
-                  ]}
+                  key={`${category}-${index}`}
+                  style={styles.categoryBlock}
                 >
-                  <TouchableOpacity
-                    style={styles.itemContent}
-                    onPress={() => handleEditItem(item, index)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemName}>{item.product_name}</Text>
-                      <Text style={styles.itemPrice}>₹{Number(item.totalPrice).toFixed(2)}</Text>
-                    </View>
+                  {/* Category Header */}
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryTitle}>
+                      {category}
+                    </Text>
 
-                    <View style={styles.itemDetails}>
-                      <View style={styles.itemBadge}>
-                        <Package size={12} color="#64748B" />
-                        <Text style={styles.itemBadgeText}>
-                          {item.quantity} × {item.length} × {item.width} {item.unit}
-                        </Text>
-                      </View>
-                      <View style={styles.itemBadge}>
-                        <Tag size={12} color="#64748B" />
-                        <Text style={styles.itemBadgeText}>
-                          ₹{Number(item.unitPrice).toFixed(2)}/unit
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-
-                  <View style={styles.itemActions}>
-                    {/* <TouchableOpacity
-                      style={[styles.itemActionButton, styles.editButton]}
-                      onPress={() => handleEditItem(item, index)}
-                      activeOpacity={0.7}
-                    >
-                      <Edit2 size={16} color="#3B82F6" />
-                    </TouchableOpacity> */}
-                    <TouchableOpacity
-                      style={[styles.itemActionButton, styles.deleteButton]}
-                      onPress={() => handleRemoveItem(item.productId, index)}
-                      activeOpacity={0.7}
-                    >
-                      <Trash2 size={16} color="#EF4444" />
-                    </TouchableOpacity>
+                    <Text style={styles.categoryCount}>
+                      {items.length} item
+                      {items.length > 1 ? 's' : ''}
+                    </Text>
                   </View>
+
+                  {/* Items */}
+                  {items.map(
+                    (item: any, index: number) => {
+                      const globalIndex = selectedProducts.findIndex(
+                        (p: any) => p.lineItemId === item.lineItemId
+                      );
+
+                      return (
+                        <View
+                          key={item.lineItemId}
+                          style={[
+                            styles.cleanItemRow,
+                            index !==
+                            items.length - 1 &&
+                            styles.cleanItemBorder,
+                          ]}
+                        >
+                          <TouchableOpacity
+                            style={styles.cleanItemContent}
+                            onPress={() =>
+                              handleEditItem(
+                                item,
+                                globalIndex
+                              )
+                            }
+                            activeOpacity={0.7}
+                          >
+                            {/* Top */}
+                            <View style={styles.cleanItemTop} >
+                              <Text
+                                style={styles.cleanItemName}
+                              >
+                                {item.product_name}
+                              </Text>
+
+                              <Text
+                                style={
+                                  styles.cleanItemPrice
+                                }
+                              >
+                                ₹
+                                {Number(
+                                  item.totalPrice
+                                ).toFixed(2)}
+                              </Text>
+                            </View>
+
+                            {/* Bottom */}
+                            <View
+                              style={
+                                styles.cleanItemMeta
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.cleanItemMetaText
+                                }
+                              >
+                                {item.quantity} ×{' '}
+                                {item.length} ×{' '}
+                                {item.width}{' '}
+                                {item.unit}
+                              </Text>
+
+                              <Text
+                                style={
+                                  styles.cleanItemMetaText
+                                }
+                              >
+                                ₹
+                                {Number(
+                                  item.unitPrice
+                                ).toFixed(2)}
+                                /unit
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={
+                              styles.cleanDeleteButton
+                            }
+                            onPress={() =>
+                              handleRemoveItem(
+                                item.productId,
+                                globalIndex
+                              )
+                            }
+                          >
+                            <Trash2
+                              size={17}
+                              color="#EF4444"
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    }
+                  )}
                 </View>
               ))}
 
@@ -1438,7 +1525,7 @@ const styles = StyleSheet.create({
   // Section
   section: {
     paddingHorizontal: 20,
-    marginTop: 24,
+    marginTop: 12,
   },
   sectionLabel: {
     fontSize: 13,
@@ -1459,7 +1546,8 @@ const styles = StyleSheet.create({
   clientCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -1477,8 +1565,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   clientIcon: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 24,
     backgroundColor: '#DBEAFE',
     alignItems: 'center',
@@ -1488,13 +1576,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clientName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 2,
   },
   clientCompany: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
   },
@@ -1584,12 +1672,32 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
+  itemLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
   itemName: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
     flex: 1,
     marginRight: 12,
+  },
+  categoryChip: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 999,
+  },
+
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   itemPrice: {
     fontSize: 16,
@@ -1818,7 +1926,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   summarySection: {
-    marginBottom: 16,
+    marginBottom: 4,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -2098,4 +2206,110 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
+  itemsWrapper: {
+    gap: 16,
+  },
+
+  categoryBlock: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: '#FAFAFA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+
+  categoryTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: '#334155',
+  },
+
+  categoryCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+
+  cleanItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+
+  cleanItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+
+  cleanItemContent: {
+    flex: 1,
+  },
+
+  cleanItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+
+  cleanItemName: {
+    flex: 1,
+
+    fontSize: 15,
+    fontWeight: '700',
+
+    color: '#0F172A',
+
+    marginRight: 12,
+  },
+
+  cleanItemPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+
+    color: '#10B981',
+  },
+
+  cleanItemMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+
+    marginTop: 8,
+  },
+
+  cleanItemMetaText: {
+    fontSize: 12,
+    fontWeight: '500',
+
+    color: '#64748B',
+  },
+
+  cleanDeleteButton: {
+    marginLeft: 14,
+
+    width: 36,
+    height: 36,
+
+    borderRadius: 10,
+
+    justifyContent: 'center',
+    alignItems: 'center',
+
+    backgroundColor: '#FEF2F2',
+  },
+
 });

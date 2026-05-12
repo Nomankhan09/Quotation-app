@@ -198,9 +198,24 @@ export default function AddItemScreen() {
     const color = colorList[Math.floor(Math.random() * colorList.length)];
     try {
       const res: any = await dispatch(addCategory({ category_name: name.trim(), description: 'NA', color }));
+      if (res?.payload?.status === 400) {
+        Alert.alert(
+          'Category Exists',
+          res?.payload?.message || 'Category already exists'
+        );
+
+        return;
+      }
+
       const newId = res?.payload?.id ?? null;
       if (newId) {
-        setCategoryId(String(newId));
+        const id = String(newId);
+
+        setCategoryId(id);
+        setModalCategoryId(id);
+
+        // Persist
+        await AsyncStorage.setItem('lastCategoryId', id);
       } else {
         const found = categories.find(c => c.category_name.toLowerCase() === name.trim().toLowerCase());
         if (found) setCategoryId(found.id);
@@ -248,9 +263,14 @@ export default function AddItemScreen() {
     const category = categories.find(c => String(c.id) === String(categoryId));
 
     const item: SelectedProduct = {
-      productId: productId ?? `tmp:${productName.trim()}`,
+      ...(editItem || {}),
+      lineItemId: editItem?.lineItemId ||
+        `line-${Date.now()}-${Math.random()}`,
+      productId: productId ||
+        editItem?.productId ||
+        `tmp:${Date.now()}`,
       product_name: productName.trim(),
-      categoryId: categoryId,
+      categoryId,
       categoryName: category?.category_name || 'Other',
       unitPrice,
       quantity,
@@ -262,7 +282,11 @@ export default function AddItemScreen() {
 
     let newList;
     if (isEditMode && editIndex !== null) {
-      newList = selectedProducts.map((p, idx) => idx === editIndex ? item : p);
+      newList = selectedProducts.map((p) =>
+        p.lineItemId === item.lineItemId
+          ? item
+          : p
+      );
     } else {
       // const exists = selectedProducts.some(p => p.productId === item.productId);
       // newList = exists
@@ -289,6 +313,14 @@ export default function AddItemScreen() {
         category_id: Number(modalCategoryId),
       })
     );
+    if (res?.payload?.status === 400) {
+      Alert.alert(
+        'Product Exists',
+        res?.payload?.message || 'Product already exists'
+      );
+
+      return;
+    }
 
     const p = res.payload;
 
@@ -312,7 +344,7 @@ export default function AddItemScreen() {
       await AsyncStorage.setItem('lastCategoryId', String(catId));
     }
     setShowMainCategoryDropdown(false);
-    if (!selectedProduct && productName.length > 0) {
+    if (!selectedProduct && productName?.length > 0) {
       setShowSuggestions(true);
     }
   };
@@ -343,14 +375,21 @@ export default function AddItemScreen() {
 
   useEffect(() => {
     const loadCategory = async () => {
-      const saved = await AsyncStorage.getItem('lastCategoryId');
-      if (saved) {
-        setCategoryId(saved);
+      try {
+        if (isEditMode) return;
+
+        const saved = await AsyncStorage.getItem('lastCategoryId');
+
+        if (saved) {
+          setCategoryId(saved);
+        }
+      } catch (e) {
+        console.log('Failed to load category', e);
       }
     };
 
     loadCategory();
-  }, []);
+  }, [isEditMode]);
 
   return (
     <TouchableWithoutFeedback onPress={closeAllOverlays}>
@@ -448,18 +487,23 @@ export default function AddItemScreen() {
                         setProductName(t);
                         setSelectedProduct(null);
                         setIsNewProduct(false);
-                        if (t.length > 0 && suggestions.length > 0) setShowSuggestions(true);
+                        if (t?.length > 0 && suggestions?.length > 0) setShowSuggestions(true);
                         else setShowSuggestions(false);
                       }}
                       onFocus={() => {
-                        if (productName.length > 0 && suggestions.length > 0) setShowSuggestions(true);
+                        if (productName?.length > 0 && suggestions?.length > 0) setShowSuggestions(true);
                       }}
                     />
                   </View>
 
                   <TouchableOpacity
                     style={styles.quickAddButton}
-                    onPress={() => setShowAddProductModal(true)}
+                    onPress={() => {
+                      if (categoryId) {
+                        setModalCategoryId(String(categoryId));
+                      }
+                      setShowAddProductModal(true);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Plus size={18} color="#fff" />

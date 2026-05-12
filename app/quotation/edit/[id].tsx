@@ -47,9 +47,11 @@ import {
   setDiscount,
   setTerms,
   setPaymentTerms,
+  setQuotationRefresh,
   // setCurrentStep 
 } from '@/store/slices/quotationBuilderSlice';
 import { generateFileName } from '@/utils/quotation';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface ISpecification {
   id: number;
@@ -94,6 +96,24 @@ export default function QuotationDetailsScreen() {
   const [quotation, setQuotation] = useState<QuotationDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const needsRefresh = useSelector((state: RootState) =>
+    state.quotationBuilder.quotationRefreshMap?.[Number(id)]
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (needsRefresh) {
+        loadQuotationDetails();
+
+        dispatch(
+          setQuotationRefresh({
+            quotationId: Number(id),
+            refresh: false,
+          })
+        );
+      }
+    }, [needsRefresh, id])
+  );
 
   useEffect(() => {
     loadQuotationDetails();

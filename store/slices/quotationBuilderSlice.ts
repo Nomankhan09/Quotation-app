@@ -53,6 +53,7 @@ interface QuotationBuilderState {
   editingQuotationId: string | null;
   prefillData: any | null;
   previewQuotation: any | null;
+  quotationRefreshMap: Record<number, boolean>;
 }
 
 const initialState: QuotationBuilderState = {
@@ -74,6 +75,7 @@ const initialState: QuotationBuilderState = {
   editingQuotationId: null,
   prefillData: null,
   previewQuotation: null,
+  quotationRefreshMap: {},
 };
 
 // Async thunks for terms
@@ -244,6 +246,16 @@ const quotationBuilderSlice = createSlice({
     },
     setPreviewQuotation: (state, action: PayloadAction<any>) => {
       state.previewQuotation = action.payload;
+    },
+    setQuotationRefresh: (state, action: PayloadAction<{ quotationId: number; refresh: boolean; }>
+    ) => {
+      if (!state.quotationRefreshMap) {
+        state.quotationRefreshMap = {};
+      }
+
+      const { quotationId, refresh } = action.payload;
+
+      state.quotationRefreshMap[quotationId] = refresh;
     },
     resetBuilder: (state, action: PayloadAction<{ force?: boolean } | undefined>) => {
       const force = action?.payload?.force ?? false;
@@ -428,6 +440,7 @@ export const {
   setSelectedLead,
   setSelectedDeal,
   setSelectedProducts,
+  setQuotationRefresh,
   updateProductConfig,
   setDiscount,
   setTerms,

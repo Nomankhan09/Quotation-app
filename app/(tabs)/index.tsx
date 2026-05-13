@@ -77,7 +77,7 @@ export default function HomeScreen() {
     },
     {
       title: 'Total Deals',
-      value: data?.total_deals?.toString() ?? '0',
+      value: data?.active_deals?.toString() ?? '0',
       // change: '+20%',
       color: '#10B981',
       bgColor: '#ECFDF5',
@@ -141,7 +141,7 @@ export default function HomeScreen() {
 
       {/* Stats */}
       <View style={styles.statsGrid}> 
-        {loading || !data?.total_leads 
+        {loading || data?.total_leads == null 
           ? Array.from({ length: 4 }).map((_, index) => (
             <View key={index} style={styles.metricCard}>
               <View style={styles.metricTop}>

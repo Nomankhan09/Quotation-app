@@ -234,7 +234,7 @@ const DealCard = ({
 
                     <View style={{ flex: 1, alignItems: 'flex-end' }}>
                         <Text style={cardStyles.date}>{deal.date}</Text>
-                        <Text style={cardStyles.quoteId}>#QUO-{deal.quotationId}</Text>
+                        {deal.quotationId && <Text style={cardStyles.quoteId}>#QUO-{deal.quotationId}</Text>}
                     </View>
                 </View>
 
